@@ -1,0 +1,18 @@
+{
+  "name": "霓虹追逐 · Neon Chaser",
+  "short_name": "霓虹追逐",
+  "description": "Phaser 3 跑酷游戏",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#050510",
+  "theme_color": "#050510",
+  "icons": [
+    {
+      "src": "assets/sprites/player.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
