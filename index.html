@@ -188,7 +188,7 @@ const CFG = {
   trackSegments: 220,
   totalLaps: 3,
   physicsHz: 120,        // 物理更新频率
-  maxSpeed: 75,          // m/s ≈ 270 km/h
+  maxSpeed: 42,          // m/s ≈ 150 km/h
   accel: 22,             // m/s²
   brakeForce: 45,
   reverseMax: 18,
@@ -1045,7 +1045,7 @@ const Game = {
 
     // 玩家：自动前进（油门恒为1），只操控左右转向躲避障碍
     vehicleUpdate(Render.player, dt, {
-      steer: Input.steer, gas: 1, brake: Input.brake, handbrake: Input.handbrake
+      steer: Input.steer, gas: 0.5, brake: Input.brake, handbrake: Input.handbrake
     }, false);
     this.updateLaps(Render.player, dt);
 
