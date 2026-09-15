@@ -333,15 +333,17 @@ const Track = {
   curve: null, points: [], width: CFG.trackWidth,
   checkpoints: [], startPos: null, startDir: null,
   generate() {
-    // 用极坐标生成带 6+ 种弯道特征的闭合控制点
-    const ctrl = [];
-    const N = 16;
-    const radii = [120, 140, 100, 160, 90, 150, 110, 170, 100, 130, 80, 155, 120, 145, 95, 165];
-    for (let i = 0; i < N; i++) {
-      const a = (i / N) * Math.PI * 2;
-      const r = radii[i] + (Math.sin(i * 1.7) * 18);
-      ctrl.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r));
-    }
+    // 简化为体育场形：两条长直道 + 两个大半径缓弯，转弯少且平滑
+    const straight = 180;   // 直道长度的一半
+    const curveR = 75;      // 弯道半径
+    const ctrl = [
+      new THREE.Vector3(-straight, 0, -curveR),  // 底部直道起点
+      new THREE.Vector3( straight, 0, -curveR),  // 底部直道终点
+      new THREE.Vector3( straight + curveR, 0, 0),  // 右弯顶点
+      new THREE.Vector3( straight, 0,  curveR),  // 顶部直道终点
+      new THREE.Vector3(-straight, 0,  curveR),  // 顶部直道起点
+      new THREE.Vector3(-straight - curveR, 0, 0),  // 左弯顶点
+    ];
     this.curve = new THREE.CatmullRomCurve3(ctrl, true, 'catmullrom', 0.5);
     // 采样
     this.points = this.curve.getPoints(CFG.trackSegments);
@@ -429,10 +431,13 @@ const Track = {
       this.obstacles.push({ pos: cone.position, radius: 0.6 });
     }
 
-    // 草地地面
+    // 草地地面（程序化纹理）
+    const groundTex = this.makeGrassTexture();
+    groundTex.wrapS = groundTex.wrapT = THREE.RepeatWrapping;
+    groundTex.repeat.set(60, 60);
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(1200, 1200),
-      new THREE.MeshStandardMaterial({ color: 0x2d5a2d, roughness: 1 })
+      new THREE.MeshStandardMaterial({ map: groundTex, roughness: 1 })
     );
     ground.rotation.x = -Math.PI/2;
     ground.position.y = -0.05;
@@ -465,56 +470,226 @@ const Track = {
     t.repeat.set(1, 1);
     return t;
   },
+  makeGrassTexture() {
+    const c = document.createElement('canvas');
+    c.width = 128; c.height = 128;
+    const ctx = c.getContext('2d');
+    // 底色
+    ctx.fillStyle = '#3a6b3a'; ctx.fillRect(0, 0, 128, 128);
+    // 噪点
+    for (let i = 0; i < 3000; i++) {
+      const g = 80 + Math.random() * 80;
+      ctx.fillStyle = `rgba(${30+Math.random()*30},${g},${30+Math.random()*30},0.6)`;
+      ctx.fillRect(Math.random()*128, Math.random()*128, 1.5, 1.5);
+    }
+    // 少量深色斑块
+    for (let i = 0; i < 40; i++) {
+      ctx.fillStyle = 'rgba(20,50,20,0.3)';
+      ctx.beginPath();
+      ctx.arc(Math.random()*128, Math.random()*128, 2+Math.random()*4, 0, Math.PI*2);
+      ctx.fill();
+    }
+    return new THREE.CanvasTexture(c);
+  },
   scatterScenery(scene, pts) {
-    // 用 InstancedMesh 种树
-    const trunk = new THREE.MeshStandardMaterial({ color: 0x5a3a1a });
-    const leaves = new THREE.MeshStandardMaterial({ color: 0x2a7a2a });
-    const tg = new THREE.CylinderGeometry(0.3, 0.5, 3, 6);
-    const lg = new THREE.ConeGeometry(2.2, 5, 7);
-    const count = 180;
-    const trees = new THREE.InstancedMesh(lg, leaves, count);
-    const trunks = new THREE.InstancedMesh(tg, trunk, count);
+    this.trees = []; // 存储树木位置用于碰撞
+
+    // === 树：松树（三层圆锥）+ 圆冠树（球体），两种类型随机 ===
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.9 });
+    const leafDark = new THREE.MeshStandardMaterial({ color: 0x1f5f1f, roughness: 0.8 });
+    const leafMid  = new THREE.MeshStandardMaterial({ color: 0x2d8a2d, roughness: 0.8 });
+    const leafLight= new THREE.MeshStandardMaterial({ color: 0x3da83d, roughness: 0.8 });
+    const roundLeaf1 = new THREE.MeshStandardMaterial({ color: 0x2a7a2a, roughness: 0.85 });
+    const roundLeaf2 = new THREE.MeshStandardMaterial({ color: 0x3a9a3a, roughness: 0.85 });
+
+    const tg = new THREE.CylinderGeometry(0.25, 0.45, 3, 8);
+    const lg1 = new THREE.ConeGeometry(2.6, 3.5, 8);
+    const lg2 = new THREE.ConeGeometry(2.0, 3.0, 8);
+    const lg3 = new THREE.ConeGeometry(1.4, 2.5, 8);
+    const roundGeo = new THREE.IcosahedronGeometry(2.2, 1);
+
+    const count = 110;
+    const trunks = new THREE.InstancedMesh(tg, trunkMat, count);
+    const l1 = new THREE.InstancedMesh(lg1, leafDark, count);
+    const l2 = new THREE.InstancedMesh(lg2, leafMid, count);
+    const l3 = new THREE.InstancedMesh(lg3, leafLight, count);
+    const round1 = new THREE.InstancedMesh(roundGeo, roundLeaf1, count);
+    const round2 = new THREE.InstancedMesh(roundGeo, roundLeaf2, count);
     const m = new THREE.Matrix4();
-    let idx = 0;
+
     for (let i = 0; i < count; i++) {
-      // 在赛道外随机
       const t = Math.random();
       const p = this.curve.getPoint(t);
       const tan = this.curve.getTangent(t);
       const len = Math.hypot(tan.x, tan.z) || 1;
       const nx = -tan.z/len, nz = tan.x/len;
       const side = Math.random() < 0.5 ? 1 : -1;
-      const dist = this.width/2 + 6 + Math.random()*50;
+      // 树离赛道近一些（15~45m），车辆靠边时能真正撞到树
+      const dist = this.width/2 + 4 + Math.random()*30;
+      const x = p.x + nx*dist*side + (Math.random()-0.5)*6;
+      const z = p.z + nz*dist*side + (Math.random()-0.5)*6;
+      const s = 0.7 + Math.random()*1.0;
+      const isPine = Math.random() < 0.6;
+
+      if (isPine) {
+        // 松树：树干 + 三层圆锥
+        m.makeScale(s, s, s); m.setPosition(x, 1.5*s, z);
+        trunks.setMatrixAt(i, m);
+        m.makeScale(s, s, s); m.setPosition(x, 3.0*s, z); l1.setMatrixAt(i, m);
+        m.makeScale(s, s, s); m.setPosition(x, 4.5*s, z); l2.setMatrixAt(i, m);
+        m.makeScale(s, s, s); m.setPosition(x, 5.8*s, z); l3.setMatrixAt(i, m);
+        // 碰撞半径 = 树冠底部半径(2.6*s) * 0.85，匹配视觉
+        this.trees.push({ pos: new THREE.Vector3(x, 0, z), radius: 2.2*s });
+        // 圆冠树的实例隐藏（缩到0）
+        m.makeScale(0, 0, 0); round1.setMatrixAt(i, m); round2.setMatrixAt(i, m);
+      } else {
+        // 圆冠树：树干 + 两层球
+        m.makeScale(s*0.8, s*0.8, s*0.8); m.setPosition(x, 1.5*s, z);
+        trunks.setMatrixAt(i, m);
+        m.makeScale(s, s, s); m.setPosition(x, 4.0*s, z); round1.setMatrixAt(i, m);
+        m.makeScale(s*0.7, s*0.7, s*0.7); m.setPosition(x, 5.4*s, z); round2.setMatrixAt(i, m);
+        // 松树层隐藏
+        m.makeScale(0, 0, 0); l1.setMatrixAt(i, m); l2.setMatrixAt(i, m); l3.setMatrixAt(i, m);
+        this.trees.push({ pos: new THREE.Vector3(x, 0, z), radius: 2.0*s });
+      }
+    }
+    [trunks, l1, l2, l3, round1, round2].forEach(o => {
+      o.instanceMatrix.needsUpdate = true; o.castShadow = true; scene.add(o);
+    });
+
+    // === 灌木（贴近赛道两侧的矮树丛）===
+    const bushMat1 = new THREE.MeshStandardMaterial({ color: 0x2d6b2d, roughness: 0.9 });
+    const bushMat2 = new THREE.MeshStandardMaterial({ color: 0x3a7a3a, roughness: 0.9 });
+    const bushGeo = new THREE.IcosahedronGeometry(0.8, 0);
+    const bushCount = 160;
+    const bushes1 = new THREE.InstancedMesh(bushGeo, bushMat1, bushCount);
+    const bushes2 = new THREE.InstancedMesh(bushGeo, bushMat2, bushCount);
+    for (let i = 0; i < bushCount; i++) {
+      const t = Math.random();
+      const p = this.curve.getPoint(t);
+      const tan = this.curve.getTangent(t);
+      const len = Math.hypot(tan.x, tan.z) || 1;
+      const nx = -tan.z/len, nz = tan.x/len;
+      const side = Math.random() < 0.5 ? 1 : -1;
+      const dist = this.width/2 + 2 + Math.random()*6;
+      const x = p.x + nx*dist*side + (Math.random()-0.5)*3;
+      const z = p.z + nz*dist*side + (Math.random()-0.5)*3;
+      const s = 0.5 + Math.random()*0.8;
+      const sc = (i % 2 === 0) ? bushes1 : bushes2;
+      m.makeScale(s, s*0.7, s); m.setPosition(x, s*0.4, z);
+      sc.setMatrixAt(i, m);
+    }
+    [bushes1, bushes2].forEach(o => { o.instanceMatrix.needsUpdate = true; o.castShadow = true; scene.add(o); });
+
+    // === 岩石（点缀）===
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x7a7a7a, roughness: 0.95 });
+    const rockGeo = new THREE.DodecahedronGeometry(0.8, 0);
+    const rockCount = 40;
+    const rocks = new THREE.InstancedMesh(rockGeo, rockMat, rockCount);
+    for (let i = 0; i < rockCount; i++) {
+      const t = Math.random();
+      const p = this.curve.getPoint(t);
+      const tan = this.curve.getTangent(t);
+      const len = Math.hypot(tan.x, tan.z) || 1;
+      const nx = -tan.z/len, nz = tan.x/len;
+      const side = Math.random() < 0.5 ? 1 : -1;
+      const dist = this.width/2 + 10 + Math.random()*40;
       const x = p.x + nx*dist*side + (Math.random()-0.5)*10;
       const z = p.z + nz*dist*side + (Math.random()-0.5)*10;
-      const s = 0.6 + Math.random()*1.2;
-      m.makeScale(s, s, s);
-      m.setPosition(x, 2.5*s, z);
-      trees.setMatrixAt(idx, m);
-      m.setPosition(x, 1.5*s, z);
-      trunks.setMatrixAt(idx, m);
-      idx++;
+      const s = 0.6 + Math.random()*1.5;
+      m.makeScale(s, s*0.7, s);
+      m.setPosition(x, s*0.3, z);
+      rocks.setMatrixAt(i, m);
     }
-    trees.instanceMatrix.needsUpdate = true;
-    trunks.instanceMatrix.needsUpdate = true;
-    trees.castShadow = trunks.castShadow = true;
-    scene.add(trees); scene.add(trunks);
+    rocks.instanceMatrix.needsUpdate = true; rocks.castShadow = true; scene.add(rocks);
 
-    // 远处建筑剪影（低面数盒子）
-    const bldMat = new THREE.MeshStandardMaterial({ color: 0x445566, roughness: 0.8 });
-    for (let i = 0; i < 40; i++) {
-      const t = i / 40;
+    // === 围栏（赛道两侧，护栏外侧的低矮木栅栏，增加路景层次）===
+    const fenceMat = new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 0.8 });
+    const fencePostGeo = new THREE.BoxGeometry(0.15, 1.0, 0.15);
+    const fenceRailGeo = new THREE.BoxGeometry(2.5, 0.1, 0.08);
+    for (let side = -1; side <= 1; side += 2) {
+      for (let i = 0; i < pts.length; i += 6) {
+        const p = pts[i];
+        const next = pts[(i+1) % pts.length];
+        const dx = next.x - p.x, dz = next.z - p.z;
+        const len = Math.hypot(dx, dz) || 1;
+        const nx = -dz/len, nz = dx/len;
+        const fx = p.x + nx * (this.width/2 + 4) * side;
+        const fz = p.z + nz * (this.width/2 + 4) * side;
+        // 立柱
+        const post = new THREE.Mesh(fencePostGeo, fenceMat);
+        post.position.set(fx, 0.5, fz);
+        post.rotation.y = Math.atan2(dx, dz);
+        scene.add(post);
+        // 横杆
+        const rail = new THREE.Mesh(fenceRailGeo, fenceMat);
+        rail.position.set(fx, 0.7, fz);
+        rail.rotation.y = Math.atan2(dx, dz);
+        scene.add(rail);
+      }
+    }
+
+    // === 远处建筑：带窗户贴图的盒子 ===
+    const winTex = this.makeBuildingTexture();
+    const bldColors = [0x8a9bb0, 0x9fb0c4, 0x7a8fa6, 0xa8b8cc, 0x6b7d92];
+    for (let i = 0; i < 24; i++) {
+      const t = i / 24;
       const p = this.curve.getPoint(t);
       const tan = this.curve.getTangent(t);
       const len = Math.hypot(tan.x, tan.z) || 1;
       const nx = -tan.z/len, nz = tan.x/len;
       const side = i % 2 ? 1 : -1;
-      const dist = this.width/2 + 60 + Math.random()*40;
-      const h = 12 + Math.random()*30;
-      const b = new THREE.Mesh(new THREE.BoxGeometry(8+Math.random()*6, h, 8+Math.random()*6), bldMat);
+      const dist = this.width/2 + 80 + Math.random()*60;
+      const h = 18 + Math.random()*40;
+      const w = 10 + Math.random()*10;
+      const color = bldColors[i % bldColors.length];
+      const bMat = new THREE.MeshStandardMaterial({ map: winTex, color, roughness: 0.7 });
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), bMat);
       b.position.set(p.x + nx*dist*side, h/2, p.z + nz*dist*side);
+      b.rotation.y = Math.random() * Math.PI;
       scene.add(b);
     }
+
+    // === 路灯：赛道两侧每隔一段 ===
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.5, metalness: 0.3 });
+    const lampMat = new THREE.MeshStandardMaterial({ color: 0xffeeaa, emissive: 0xffcc66, emissiveIntensity: 0.6 });
+    for (let i = 0; i < pts.length; i += 16) {
+      const p = pts[i];
+      const next = pts[(i+1) % pts.length];
+      const dx = next.x - p.x, dz = next.z - p.z;
+      const len = Math.hypot(dx, dz) || 1;
+      const nx = -dz/len, nz = dx/len;
+      for (let side = -1; side <= 1; side += 2) {
+        const px = p.x + nx * (this.width/2 + 1.5) * side;
+        const pz = p.z + nz * (this.width/2 + 1.5) * side;
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 6, 6), poleMat);
+        pole.position.set(px, 3, pz);
+        scene.add(pole);
+        const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8), lampMat);
+        lamp.position.set(px, 6.2, pz);
+        scene.add(lamp);
+      }
+    }
+  },
+
+  makeBuildingTexture() {
+    const c = document.createElement('canvas');
+    c.width = 128; c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#4a5568'; ctx.fillRect(0, 0, 128, 256);
+    // 窗户网格
+    ctx.fillStyle = '#a8d4ff';
+    for (let y = 8; y < 256; y += 16) {
+      for (let x = 6; x < 128; x += 14) {
+        const lit = Math.random() > 0.4;
+        ctx.fillStyle = lit ? '#ffe89a' : '#5a7a9a';
+        ctx.fillRect(x, y, 8, 10);
+      }
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(2, 4);
+    return t;
   }
 };
 
@@ -590,47 +765,73 @@ function vehicleUpdate(v, dt, input, isAI) {
   // 合成新速度
   v.vel.copy(forward).multiplyScalar(newFwd).addScaledVector(right, newLat);
 
-  // --- 位置积分 ---
-  v.pos.addScaledVector(v.vel, dt);
+  // --- 位置积分（子步检测，防止高速穿模）---
+  const steps = Math.max(1, Math.ceil(v.vel.length() * dt / 1.0)); // 每步最多移动1.0m
+  const sdt = dt / steps;
+  for (let s = 0; s < steps; s++) {
+    v.pos.addScaledVector(v.vel, sdt);
 
-  // --- 障碍物碰撞（路锥）---
-  if (Track.obstacles) {
-    for (const ob of Track.obstacles) {
-      const dx = v.pos.x - ob.pos.x;
-      const dz = v.pos.z - ob.pos.z;
-      const d = Math.hypot(dx, dz);
-      const minD = ob.radius + 1.0; // 车半径+锥半径
-      if (d < minD) {
-        const push = (minD - d) + 0.05;
-        const nx = dx / (d || 1), nz = dz / (d || 1);
-        v.pos.x += nx * push;
-        v.pos.z += nz * push;
-        // 去掉撞向障碍物的速度分量
-        const vdot = v.vel.x * nx + v.vel.z * nz;
-        if (vdot < 0) {
-          v.vel.x -= vdot * nx;
-          v.vel.z -= vdot * nz;
-          v.vel.multiplyScalar(0.85);
+    // 护栏碰撞（边界贴近护栏内侧，避免视觉穿模）
+    const near = closestPointOnTrack(v.pos);
+    const dist = v.pos.distanceTo(near.point);
+    const boundary = CFG.trackWidth / 2 - 1.6;
+    if (dist > boundary) {
+      const toCenter = new THREE.Vector3().subVectors(near.point, v.pos).normalize();
+      const overlap = dist - boundary;
+      v.pos.addScaledVector(toCenter, overlap + 0.2);
+      const vWall = v.vel.dot(toCenter);
+      if (vWall < 0) {
+        v.vel.addScaledVector(toCenter, -vWall * 1.3);
+        v.vel.multiplyScalar(0.85);
+      }
+      if (speed > 8) Audio.crash();
+    }
+
+    // 路锥碰撞
+    if (Track.obstacles) {
+      for (const ob of Track.obstacles) {
+        const dx = v.pos.x - ob.pos.x;
+        const dz = v.pos.z - ob.pos.z;
+        const d = Math.hypot(dx, dz);
+        const minD = ob.radius + 1.4;
+        if (d < minD) {
+          const push = (minD - d) + 0.15;
+          const nx = dx / (d || 1), nz = dz / (d || 1);
+          v.pos.x += nx * push;
+          v.pos.z += nz * push;
+          const vdot = v.vel.x * nx + v.vel.z * nz;
+          if (vdot < 0) {
+            v.vel.x -= vdot * nx * 1.1;
+            v.vel.z -= vdot * nz * 1.1;
+            v.vel.multiplyScalar(0.85);
+          }
+          if (speed > 5) Audio.crash();
         }
-        if (speed > 5) Audio.crash();
       }
     }
-  }
 
-  // --- 护栏碰撞（距赛道中心距离检测）---
-  const near = closestPointOnTrack(v.pos);
-  const dist = v.pos.distanceTo(near.point);
-  const boundary = CFG.trackWidth / 2 - 0.8; // 与护栏视觉位置对齐
-  if (dist > boundary) {
-    const toCenter = new THREE.Vector3().subVectors(near.point, v.pos).normalize();
-    const overlap = dist - boundary;
-    v.pos.addScaledVector(toCenter, overlap + 0.1); // 多推一点防止穿模
-    const vWall = v.vel.dot(toCenter);
-    if (vWall < 0) {
-      v.vel.addScaledVector(toCenter, -vWall);
-      v.vel.multiplyScalar(0.9); // 撞墙损耗加大
+    // 树木碰撞（半径匹配视觉树冠底部宽度）
+    if (Track.trees) {
+      for (const tr of Track.trees) {
+        const dx = v.pos.x - tr.pos.x;
+        const dz = v.pos.z - tr.pos.z;
+        const d = Math.hypot(dx, dz);
+        const minD = tr.radius + 1.4;
+        if (d < minD) {
+          const push = (minD - d) + 0.15;
+          const nx = dx / (d || 1), nz = dz / (d || 1);
+          v.pos.x += nx * push;
+          v.pos.z += nz * push;
+          const vdot = v.vel.x * nx + v.vel.z * nz;
+          if (vdot < 0) {
+            v.vel.x -= vdot * nx * 1.2;
+            v.vel.z -= vdot * nz * 1.2;
+            v.vel.multiplyScalar(0.65);
+          }
+          if (speed > 5) Audio.crash();
+        }
+      }
     }
-    if (speed > 8) Audio.crash();
   }
 
   // 姿态反馈：过弯侧倾、加减速俯仰
@@ -717,7 +918,7 @@ const Render = {
   init() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x88bbee);
-    this.scene.fog = new THREE.Fog(0x88bbee, 120, 420);
+    this.scene.fog = new THREE.Fog(0x88bbee, 180, 600);
 
     this.camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
     try {
@@ -779,30 +980,89 @@ const Render = {
   buildCar(isPlayer) {
     const v = createVehicle(isPlayer);
     const g = new THREE.Group();
-    // 车身
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(2, 0.8, 4.2),
-      new THREE.MeshStandardMaterial({ color: v.color, metalness: 0.6, roughness: 0.3 })
-    );
-    body.position.y = 0.7; body.castShadow = true;
-    g.add(body);
-    // 车顶
-    const cabin = new THREE.Mesh(
-      new THREE.BoxGeometry(1.6, 0.6, 2.0),
-      new THREE.MeshStandardMaterial({ color: 0x222233, metalness: 0.3, roughness: 0.2 })
-    );
-    cabin.position.set(0, 1.3, -0.2);
-    g.add(cabin);
-    // 轮子
-    const wg = new THREE.CylinderGeometry(0.45, 0.45, 0.35, 16);
-    const wm = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
-    const wp = [[-1.1,0.45,1.3],[1.1,0.45,1.3],[-1.1,0.45,-1.3],[1.1,0.45,-1.3]];
+    // 车身主色
+    const bodyMat = new THREE.MeshStandardMaterial({ color: v.color, metalness: 0.7, roughness: 0.25 });
+    const darkMat  = new THREE.MeshStandardMaterial({ color: 0x1a1a1f, metalness: 0.3, roughness: 0.5 });
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x1a2a3a, metalness: 0.4, roughness: 0.1, transparent: true, opacity: 0.8 });
+
+    // —— 底盘（低趴宽体）——
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.35, 4.2), darkMat);
+    chassis.position.y = 0.32; chassis.castShadow = true; g.add(chassis);
+
+    // —— 车身主体（中部高，前后略低）——
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.55, 3.6), bodyMat);
+    body.position.set(0, 0.62, 0); body.castShadow = true; g.add(body);
+
+    // —— 前鼻（收窄，营造车头指向感）——
+    const nose = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.42, 0.9), bodyMat);
+    nose.position.set(0, 0.55, 2.15); g.add(nose);
+
+    // —— 前唇（前铲）——
+    const splitter = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.08, 0.35), darkMat);
+    splitter.position.set(0, 0.22, 2.35); g.add(splitter);
+
+    // —— 后厢（略高，集成尾翼基座）——
+    const rear = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.48, 0.7), bodyMat);
+    rear.position.set(0, 0.68, -1.95); g.add(rear);
+
+    // —— 座舱（溜背式，玻璃感）——
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.52, 1.7), glassMat);
+    cabin.position.set(0, 1.1, -0.15); g.add(cabin);
+
+    // —— 前挡风（倾斜，用薄盒旋转模拟）——
+    const windshield = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.55, 0.08), glassMat);
+    windshield.position.set(0, 1.0, 0.75);
+    windshield.rotation.x = -0.45; g.add(windshield);
+
+    // —— 后挡风 ——
+    const rearWin = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.4, 0.08), glassMat);
+    rearWin.position.set(0, 1.05, -0.95);
+    rearWin.rotation.x = 0.5; g.add(rearWin);
+
+    // —— 尾翼 ——
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.08, 0.4), bodyMat);
+    wing.position.set(0, 1.35, -2.0); g.add(wing);
+    const wingSupport = new THREE.BoxGeometry(0.08, 0.3, 0.3);
+    const ws1 = new THREE.Mesh(wingSupport, darkMat); ws1.position.set(-0.6, 1.2, -2.0); g.add(ws1);
+    const ws2 = new THREE.Mesh(wingSupport, darkMat); ws2.position.set(0.6, 1.2, -2.0); g.add(ws2);
+
+    // —— 侧裙 ——
+    const skirtGeo = new THREE.BoxGeometry(0.08, 0.12, 3.0);
+    const skirtL = new THREE.Mesh(skirtGeo, darkMat); skirtL.position.set(-1.0, 0.28, 0); g.add(skirtL);
+    const skirtR = new THREE.Mesh(skirtGeo, darkMat); skirtR.position.set(1.0, 0.28, 0); g.add(skirtR);
+
+    // —— 后视镜 ——
+    const mirrorGeo = new THREE.BoxGeometry(0.22, 0.14, 0.18);
+    const mirL = new THREE.Mesh(mirrorGeo, bodyMat); mirL.position.set(-1.05, 1.0, 0.6); g.add(mirL);
+    const mirR = new THREE.Mesh(mirrorGeo, bodyMat); mirR.position.set(1.05, 1.0, 0.6); g.add(mirR);
+
+    // —— 前大灯（细长锐利）——
+    const headlightMat = new THREE.MeshStandardMaterial({ color: 0xffffee, emissive: 0xffffaa, emissiveIntensity: 0.9 });
+    const hl1 = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.12, 0.08), headlightMat);
+    hl1.position.set(-0.6, 0.6, 2.58); g.add(hl1);
+    const hl2 = hl1.clone(); hl2.position.x = 0.6; g.add(hl2);
+
+    // —— 尾灯（贯穿式红光带）——
+    const tailMat = new THREE.MeshStandardMaterial({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 0.7 });
+    const tailBar = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.1, 0.06), tailMat);
+    tailBar.position.set(0, 0.78, -2.32); g.add(tailBar);
+
+    // —— 轮子 ——
+    const wg = new THREE.CylinderGeometry(0.42, 0.42, 0.32, 16);
+    const wm = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.85 });
+    const rimMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8, roughness: 0.3 });
+    const rimGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.34, 8);
+    const wp = [[-1.05,0.42,1.4],[1.05,0.42,1.4],[-1.05,0.42,-1.4],[1.05,0.42,-1.4]];
     const ws = [];
     wp.forEach((p,i) => {
       const w = new THREE.Mesh(wg, wm);
       w.rotation.z = Math.PI/2;
-      w.position.set(...p); w.castShadow = true;
-      g.add(w); ws.push(w);
+      w.position.set(...p); w.castShadow = true; g.add(w);
+      // 轮毂
+      const rim = new THREE.Mesh(rimGeo, rimMat);
+      rim.rotation.z = Math.PI/2;
+      rim.position.set(...p); g.add(rim);
+      ws.push(w);
     });
     v.mesh = g;
     v.wheelFL = ws[0]; v.wheelFR = ws[1]; v.wheelRL = ws[2]; v.wheelRR = ws[3];
