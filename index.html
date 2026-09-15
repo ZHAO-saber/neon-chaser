@@ -196,11 +196,11 @@ const CFG = {
   rollResist: 1.0,       // 滚动阻力
   grip: 5.5,             // 侧向抓地力
   handbrakeGrip: 0.8,
-  steerMax: 0.62,        // 最大转向角 rad
-  steerSpeed: 3.2,
-  steerReturn: 4.5,
+  steerMax: 0.72,        // 最大转向角 rad
+  steerSpeed: 7.0,        // 输入响应速度
+  steerReturn: 2.8,       // 回正速度（松开会正）
   lowSpeedSteer: 1.0,    // 低速转向倍率
-  highSpeedSteer: 0.45,  // 高速转向倍率
+  highSpeedSteer: 0.72,  // 高速转向倍率
   speedLinesFOV: 1.6,    // 速度感 FOV 增量系数
   aiCount: 2,
   aiSkill: [0.92, 0.86], // AI 速度系数
@@ -574,8 +574,8 @@ function vehicleUpdate(v, dt, input, isAI) {
   v.steer = THREE.MathUtils.lerp(v.steer, input.steer * CFG.steerMax * steerMult, Math.min(1, dt*6));
   // 转向改变速度方向：低速转向灵敏、高速收敛（转向率随速度递减但有下限）
   if (Math.abs(fwdSpeed) > 0.1) {
-    const steerRate = Math.max(0.35, 1.0 - speed / 55);
-    const turnRate = v.steer * steerRate * 3.0;
+    const steerRate = Math.max(0.6, 1.0 - speed / 70);
+    const turnRate = v.steer * steerRate * 5.0;
     v.heading += turnRate * dt * Math.sign(fwdSpeed);
   }
 
