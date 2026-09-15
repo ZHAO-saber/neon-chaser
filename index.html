@@ -123,15 +123,13 @@
 <!-- 开始菜单 -->
 <div id="menu-start" class="overlay active">
   <h1>COCKPIT RACER</h1>
-  <div class="sub">第三人称 · 3圈竞速 · 滑动转向</div>
+  <div class="sub">第三人称 · 自动前进 · 左右躲避障碍</div>
   <div class="panel">
     <h3 style="color:#7ad9e8;margin-bottom:10px;letter-spacing:2px">操 作 说 明</h3>
     <div class="controls-grid">
-      <div><span class="key">W / ↑</span></div><div class="desc">加速</div>
-      <div><span class="key">S / ↓</span></div><div class="desc">刹车 / 倒车</div>
-      <div><span class="key">A / ←</span></div><div class="desc">左转</div>
-      <div><span class="key">D / →</span></div><div class="desc">右转</div>
-      <div><span class="key">滑动 ←→</span></div><div class="desc">触屏左右滑动转向</div>
+      <div><span class="key">◀ ▶ 按钮</span></div><div class="desc">左右转向</div>
+      <div><span class="key">滑动 ←→</span></div><div class="desc">触屏滑动转向</div>
+      <div><span class="key">A / D</span></div><div class="desc">键盘左右</div>
       <div><span class="key">ESC / P</span></div><div class="desc">暂停</div>
     </div>
     <button class="btn" id="btn-start">开 始 比 赛</button>
@@ -162,12 +160,10 @@
   </div>
 </div>
 
-<!-- 触控：左右转向 + 油门/刹车 -->
+<!-- 触控：左右转向（自动前进，只需躲避） -->
 <div id="touch">
   <div class="t-btn t-left" data-key="left">◀</div>
   <div class="t-btn t-right" data-key="right">▶</div>
-  <div class="t-btn t-gas" data-key="gas">▲</div>
-  <div class="t-btn t-brake" data-key="brake">▼</div>
 </div>
 
 <!-- Three.js (jsDelivr CDN，国内外移动网络更稳) -->
@@ -1044,9 +1040,9 @@ const Game = {
     this.lapTime += dt;
     Input.update(dt);
 
-    // 玩家
+    // 玩家：自动前进（油门恒为1），只操控左右转向躲避障碍
     vehicleUpdate(Render.player, dt, {
-      steer: Input.steer, gas: Input.gas, brake: Input.brake, handbrake: Input.handbrake
+      steer: Input.steer, gas: 1, brake: Input.brake, handbrake: Input.handbrake
     }, false);
     this.updateLaps(Render.player, dt);
 
@@ -1061,7 +1057,7 @@ const Game = {
     // 引擎声
     const p = Render.player;
     const rpm = Math.abs(p.vel.length()) / CFG.maxSpeed;
-    Audio.setEngine(rpm, Input.gas);
+    Audio.setEngine(rpm, 1);
 
     // 结束判定
     if (p.finished) this.finishRace();
