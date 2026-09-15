@@ -747,22 +747,22 @@ const Render = {
   buildCockpit() {
     // 驾驶舱：方向盘 + 仪表板（仅玩家）
     this.cockpit = new THREE.Group();
-    // 仪表板（相机前方偏下）
+    // 仪表板（相机前方偏下，缩小尺寸减少遮挡）
     const dash = new THREE.Mesh(
-      new THREE.BoxGeometry(2.6, 0.45, 0.6),
+      new THREE.BoxGeometry(2.2, 0.35, 0.5),
       new THREE.MeshStandardMaterial({ color: 0x1a1a1f, roughness: 0.6 })
     );
-    dash.position.set(0, -0.4, -0.7);
+    dash.position.set(0, -0.5, -0.8);
     this.cockpit.add(dash);
-    // 方向盘
+    // 方向盘（缩小半径，下移并前移，减少遮挡前方视线）
     const wheelGroup = new THREE.Group();
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(0.22, 0.035, 10, 28),
+      new THREE.TorusGeometry(0.16, 0.028, 10, 28),
       new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5 })
     );
     wheelGroup.add(ring);
     const hub = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.05, 0.05, 0.08, 12),
+      new THREE.CylinderGeometry(0.04, 0.04, 0.07, 12),
       new THREE.MeshStandardMaterial({ color: 0x00aacc })
     );
     hub.rotation.x = Math.PI/2;
@@ -770,23 +770,23 @@ const Render = {
     // 辐条
     for (let i = 0; i < 3; i++) {
       const sp = new THREE.Mesh(
-        new THREE.BoxGeometry(0.18, 0.02, 0.02),
+        new THREE.BoxGeometry(0.13, 0.018, 0.018),
         new THREE.MeshStandardMaterial({ color: 0x333333 })
       );
       sp.rotation.z = (i * Math.PI*2)/3;
       wheelGroup.add(sp);
     }
-    wheelGroup.position.set(0, -0.25, -0.45);
-    wheelGroup.rotation.x = -0.3;
+    wheelGroup.position.set(0, -0.38, -0.6);
+    wheelGroup.rotation.x = -0.35;
     this.cockpit.add(wheelGroup);
     this.steeringWheel = wheelGroup;
 
     // A柱 / 挡风玻璃框（两侧，暗示视野边界，不穿模）
     const pillarMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0d });
-    const lp = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.9, 0.08), pillarMat);
-    lp.position.set(-0.9, 0.25, -0.3); lp.rotation.z = 0.12;
+    const lp = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.85, 0.07), pillarMat);
+    lp.position.set(-0.85, 0.2, -0.35); lp.rotation.z = 0.12;
     this.cockpit.add(lp);
-    const rp = lp.clone(); rp.position.x = 0.9; rp.rotation.z = -0.12;
+    const rp = lp.clone(); rp.position.x = 0.85; rp.rotation.z = -0.12;
     this.cockpit.add(rp);
 
     // 座舱组挂在相机下，本地坐标即相对驾驶员眼位
@@ -839,9 +839,9 @@ const Render = {
     const targetFov = 75 + (speed/CFG.maxSpeed) * CFG.speedLinesFOV * 20;
     this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, 0.1);
     this.camera.updateProjectionMatrix();
-    // 方向盘旋转
+    // 方向盘旋转（相机Y轴旋转+π后整体镜像，故符号取正）
     if (this.steeringWheel) {
-      this.steeringWheel.rotation.z = -v.steer * 1.8;
+      this.steeringWheel.rotation.z = v.steer * 1.8;
     }
     // 太阳光跟随
     this.sun.position.set(v.pos.x + 80, 120, v.pos.z + 50);
