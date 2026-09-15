@@ -749,10 +749,10 @@ const Render = {
     this.cockpit = new THREE.Group();
     // 仪表板（相机前方偏下，缩小尺寸减少遮挡）
     const dash = new THREE.Mesh(
-      new THREE.BoxGeometry(2.2, 0.35, 0.5),
+      new THREE.BoxGeometry(2.2, 0.32, 0.5),
       new THREE.MeshStandardMaterial({ color: 0x1a1a1f, roughness: 0.6 })
     );
-    dash.position.set(0, -0.5, -0.8);
+    dash.position.set(0, -0.8, -1.0);
     this.cockpit.add(dash);
     // 方向盘（缩小半径，下移并前移，减少遮挡前方视线）
     const wheelGroup = new THREE.Group();
@@ -776,7 +776,7 @@ const Render = {
       sp.rotation.z = (i * Math.PI*2)/3;
       wheelGroup.add(sp);
     }
-    wheelGroup.position.set(0, -0.38, -0.6);
+    wheelGroup.position.set(0, -0.62, -0.75);
     wheelGroup.rotation.x = -0.35;
     this.cockpit.add(wheelGroup);
     this.steeringWheel = wheelGroup;
@@ -820,8 +820,8 @@ const Render = {
   },
   updateCamera(dt) {
     const v = this.player;
-    // 摄像机跟随驾驶员眼位
-    const eyeOffset = new THREE.Vector3(0, 1.55, 0.3);
+    // 摄像机跟随驾驶员眼位（抬高一点，确保能看到前方道路）
+    const eyeOffset = new THREE.Vector3(0, 1.85, 0.3);
     const cos = Math.cos(v.heading), sin = Math.sin(v.heading);
     const camPos = new THREE.Vector3(
       v.pos.x + eyeOffset.x*cos + eyeOffset.z*sin,
@@ -833,7 +833,8 @@ const Render = {
     this.camera.rotation.order = 'YXZ';
     this.camera.rotation.y = v.heading + Math.PI;
     this.camera.rotation.z = v.roll;
-    this.camera.rotation.x = v.pitch;
+    // 基础下俯角(看路) + 加减速俯仰
+    this.camera.rotation.x = -0.10 + v.pitch;
     // 速度感 FOV
     const speed = v.vel.length();
     const targetFov = 75 + (speed/CFG.maxSpeed) * CFG.speedLinesFOV * 20;
