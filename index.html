@@ -260,13 +260,13 @@ const Input = {
     this.gas = (this.keys['KeyW']||this.keys['ArrowUp']) ? 1 : 0;
     this.brake = (this.keys['KeyS']||this.keys['ArrowDown']) ? 1 : 0;
     this.handbrake = !!this.keys['Space'];
-    // 转向输入：触屏滑动优先，其次键盘/按钮
+    // 转向输入：触屏滑动优先，其次键盘/按钮（取反：左=正，因相机视角方向）
     let target = 0;
     if (this.swipeActive) {
-      target = this.swipeX;
+      target = -this.swipeX;
     } else {
-      if (this.keys['KeyA']||this.keys['ArrowLeft']) target -= 1;
-      if (this.keys['KeyD']||this.keys['ArrowRight']) target += 1;
+      if (this.keys['KeyA']||this.keys['ArrowLeft']) target += 1;
+      if (this.keys['KeyD']||this.keys['ArrowRight']) target -= 1;
     }
     // 平滑转向
     if (target !== 0) {
