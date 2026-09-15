@@ -123,7 +123,7 @@
 <!-- 开始菜单 -->
 <div id="menu-start" class="overlay active">
   <h1>COCKPIT RACER</h1>
-  <div class="sub">第一人称 · 3圈竞速 · 沉浸式驾驶</div>
+  <div class="sub">第三人称 · 3圈竞速 · 滑动转向</div>
   <div class="panel">
     <h3 style="color:#7ad9e8;margin-bottom:10px;letter-spacing:2px">操 作 说 明</h3>
     <div class="controls-grid">
@@ -131,7 +131,7 @@
       <div><span class="key">S / ↓</span></div><div class="desc">刹车 / 倒车</div>
       <div><span class="key">A / ←</span></div><div class="desc">左转</div>
       <div><span class="key">D / →</span></div><div class="desc">右转</div>
-      <div><span class="key">SPACE</span></div><div class="desc">手刹</div>
+      <div><span class="key">滑动 ←→</span></div><div class="desc">触屏左右滑动转向</div>
       <div><span class="key">ESC / P</span></div><div class="desc">暂停</div>
     </div>
     <button class="btn" id="btn-start">开 始 比 赛</button>
@@ -162,10 +162,8 @@
   </div>
 </div>
 
-<!-- 触控 -->
+<!-- 触控：油门/刹车按钮（左右转向靠滑动） -->
 <div id="touch">
-  <div class="t-btn t-left" data-key="left">◀</div>
-  <div class="t-btn t-right" data-key="right">▶</div>
   <div class="t-btn t-gas" data-key="gas">▲</div>
   <div class="t-btn t-brake" data-key="brake">▼</div>
 </div>
@@ -185,7 +183,7 @@
 
 /* ============================ 1. CONFIG ============================ */
 const CFG = {
-  trackWidth: 14,
+  trackWidth: 22,
   trackSegments: 220,
   totalLaps: 3,
   physicsHz: 120,        // 物理更新频率
@@ -210,6 +208,7 @@ const CFG = {
 /* ============================ 2. INPUT ============================ */
 const Input = {
   keys: {}, steer: 0, gas: 0, brake: 0, handbrake: false,
+  swipeX: 0, swipeActive: false, swipeStartX: 0,
   init() {
     window.addEventListener('keydown', e => {
       this.keys[e.code] = true;
@@ -217,7 +216,7 @@ const Input = {
       if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
     });
     window.addEventListener('keyup', e => { this.keys[e.code] = false; });
-    // 触控
+    // 触控按钮（油门/刹车）
     const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
     if (isTouch) document.getElementById('touch').classList.add('active');
     document.querySelectorAll('.t-btn').forEach(b => {
@@ -229,6 +228,25 @@ const Input = {
       b.addEventListener('pointerleave', rel);
       b.addEventListener('pointercancel', rel);
     });
+    // 触屏左右滑动控制转向
+    const canvas = document.getElementById('game');
+    canvas.addEventListener('touchstart', e => {
+      if (e.touches.length > 0) {
+        this.swipeActive = true;
+        this.swipeStartX = e.touches[0].clientX;
+        this.swipeX = 0;
+      }
+    }, { passive: true });
+    canvas.addEventListener('touchmove', e => {
+      if (this.swipeActive && e.touches.length > 0) {
+        const dx = e.touches[0].clientX - this.swipeStartX;
+        // 滑动 80px 对应满舵，限制范围
+        this.swipeX = Math.max(-1, Math.min(1, dx / 80));
+      }
+    }, { passive: true });
+    const endSwipe = () => { this.swipeActive = false; this.swipeX = 0; };
+    canvas.addEventListener('touchend', endSwipe);
+    canvas.addEventListener('touchcancel', endSwipe);
   },
   setTouch(k, v) {
     if (k === 'left') this.keys['ArrowLeft'] = v;
@@ -241,15 +259,18 @@ const Input = {
     this.gas = (this.keys['KeyW']||this.keys['ArrowUp']) ? 1 : 0;
     this.brake = (this.keys['KeyS']||this.keys['ArrowDown']) ? 1 : 0;
     this.handbrake = !!this.keys['Space'];
-    // 转向输入
+    // 转向输入：触屏滑动优先，其次键盘/按钮
     let target = 0;
-    if (this.keys['KeyA']||this.keys['ArrowLeft']) target -= 1;
-    if (this.keys['KeyD']||this.keys['ArrowRight']) target += 1;
+    if (this.swipeActive) {
+      target = this.swipeX;
+    } else {
+      if (this.keys['KeyA']||this.keys['ArrowLeft']) target -= 1;
+      if (this.keys['KeyD']||this.keys['ArrowRight']) target += 1;
+    }
     // 平滑转向
     if (target !== 0) {
-      this.steer += target * CFG.steerSpeed * dt;
+      this.steer += (target - this.steer) * Math.min(1, CFG.steerSpeed * dt);
     } else {
-      // 自动回正
       const r = CFG.steerReturn * dt;
       if (Math.abs(this.steer) <= r) this.steer = 0;
       else this.steer -= Math.sign(this.steer) * r;
@@ -385,6 +406,26 @@ const Track = {
         b.castShadow = true;
         scene.add(b);
       }
+    }
+
+    // 赛道障碍物：路锥（每隔一段放一个，左右交替，需躲避）
+    const coneGeo = new THREE.ConeGeometry(0.4, 1.0, 8);
+    const coneMat = new THREE.MeshStandardMaterial({ color: 0xff6600, roughness: 0.7 });
+    this.obstacles = [];
+    for (let i = 8; i < pts.length - 2; i += 7) {
+      const p = pts[i];
+      const next = pts[(i+1) % pts.length];
+      const dx = next.x - p.x, dz = next.z - p.z;
+      const len = Math.hypot(dx, dz) || 1;
+      const nx = -dz/len, nz = dx/len; // 法向
+      // 左右交替放置，距中心 4~7 米
+      const side = (i % 2 === 0) ? 1 : -1;
+      const off = (3 + (i % 3) * 1.5) * side;
+      const cone = new THREE.Mesh(coneGeo, coneMat);
+      cone.position.set(p.x + nx*off, 0.5, p.z + nz*off);
+      cone.castShadow = true;
+      scene.add(cone);
+      this.obstacles.push({ pos: cone.position, radius: 0.6 });
     }
 
     // 草地地面
@@ -551,20 +592,42 @@ function vehicleUpdate(v, dt, input, isAI) {
   // --- 位置积分 ---
   v.pos.addScaledVector(v.vel, dt);
 
+  // --- 障碍物碰撞（路锥）---
+  if (Track.obstacles) {
+    for (const ob of Track.obstacles) {
+      const dx = v.pos.x - ob.pos.x;
+      const dz = v.pos.z - ob.pos.z;
+      const d = Math.hypot(dx, dz);
+      const minD = ob.radius + 1.0; // 车半径+锥半径
+      if (d < minD) {
+        const push = (minD - d) + 0.05;
+        const nx = dx / (d || 1), nz = dz / (d || 1);
+        v.pos.x += nx * push;
+        v.pos.z += nz * push;
+        // 去掉撞向障碍物的速度分量
+        const vdot = v.vel.x * nx + v.vel.z * nz;
+        if (vdot < 0) {
+          v.vel.x -= vdot * nx;
+          v.vel.z -= vdot * nz;
+          v.vel.multiplyScalar(0.85);
+        }
+        if (speed > 5) Audio.crash();
+      }
+    }
+  }
+
   // --- 护栏碰撞（距赛道中心距离检测）---
-  // 找到最近赛道点
   const near = closestPointOnTrack(v.pos);
   const dist = v.pos.distanceTo(near.point);
-  if (dist > CFG.trackWidth/2 - 1.2) {
-    // 推回赛道
+  const boundary = CFG.trackWidth / 2 - 0.8; // 与护栏视觉位置对齐
+  if (dist > boundary) {
     const toCenter = new THREE.Vector3().subVectors(near.point, v.pos).normalize();
-    const overlap = dist - (CFG.trackWidth/2 - 1.2);
-    v.pos.addScaledVector(toCenter, overlap);
-    // 只去掉撞墙方向的速度分量，保留车头方向速度（使转向有效）
-    const vWall = v.vel.dot(toCenter); // <0 朝墙，>0 朝中心
+    const overlap = dist - boundary;
+    v.pos.addScaledVector(toCenter, overlap + 0.1); // 多推一点防止穿模
+    const vWall = v.vel.dot(toCenter);
     if (vWall < 0) {
       v.vel.addScaledVector(toCenter, -vWall);
-      v.vel.multiplyScalar(0.96); // 轻微损耗
+      v.vel.multiplyScalar(0.9); // 撞墙损耗加大
     }
     if (speed > 8) Audio.crash();
   }
@@ -699,7 +762,7 @@ const Render = {
     }
 
     this.resetCars();
-    this.buildCockpit();
+    // 第三人称视角，不建座舱
     window.addEventListener('resize', () => this.onResize());
   },
   makeSkyTexture() {
@@ -820,30 +883,27 @@ const Render = {
   },
   updateCamera(dt) {
     const v = this.player;
-    // 摄像机跟随驾驶员眼位（抬高一点，确保能看到前方道路）
-    const eyeOffset = new THREE.Vector3(0, 1.85, 0.3);
-    const cos = Math.cos(v.heading), sin = Math.sin(v.heading);
-    const camPos = new THREE.Vector3(
-      v.pos.x + eyeOffset.x*cos + eyeOffset.z*sin,
-      v.pos.y + eyeOffset.y,
-      v.pos.z - eyeOffset.x*sin + eyeOffset.z*cos
+    // 第三人称跟随相机：车后方 + 高处，看向车头前方
+    const fwd = new THREE.Vector3(Math.sin(v.heading), 0, Math.cos(v.heading));
+    const camOffset = new THREE.Vector3(-fwd.x * 9, 6.5, -fwd.z * 9); // 后方9米、高6.5米
+    const targetPos = new THREE.Vector3(
+      v.pos.x + camOffset.x,
+      v.pos.y + camOffset.y,
+      v.pos.z + camOffset.z
     );
-    this.camera.position.copy(camPos);
-    // 朝向：车头朝 +Z，相机默认朝 -Z，故加 π 使视线与车头一致
-    this.camera.rotation.order = 'YXZ';
-    this.camera.rotation.y = v.heading + Math.PI;
-    this.camera.rotation.z = v.roll;
-    // 基础下俯角(看路) + 加减速俯仰
-    this.camera.rotation.x = -0.10 + v.pitch;
+    this.camera.position.lerp(targetPos, Math.min(1, dt * 6));
+    // 看向车头前方一点
+    const lookAt = new THREE.Vector3(
+      v.pos.x + fwd.x * 6,
+      v.pos.y + 1.0,
+      v.pos.z + fwd.z * 6
+    );
+    this.camera.lookAt(lookAt);
     // 速度感 FOV
     const speed = v.vel.length();
-    const targetFov = 75 + (speed/CFG.maxSpeed) * CFG.speedLinesFOV * 20;
+    const targetFov = 65 + (speed / CFG.maxSpeed) * CFG.speedLinesFOV * 15;
     this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, 0.1);
     this.camera.updateProjectionMatrix();
-    // 方向盘旋转（相机Y轴旋转+π后整体镜像，故符号取正）
-    if (this.steeringWheel) {
-      this.steeringWheel.rotation.z = v.steer * 1.8;
-    }
     // 太阳光跟随
     this.sun.position.set(v.pos.x + 80, 120, v.pos.z + 50);
     this.sun.target.position.copy(v.pos);
