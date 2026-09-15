@@ -829,9 +829,9 @@ const Render = {
       v.pos.z - eyeOffset.x*sin + eyeOffset.z*cos
     );
     this.camera.position.copy(camPos);
-    // 朝向
+    // 朝向：车头朝 +Z，相机默认朝 -Z，故加 π 使视线与车头一致
     this.camera.rotation.order = 'YXZ';
-    this.camera.rotation.y = v.heading;
+    this.camera.rotation.y = v.heading + Math.PI;
     this.camera.rotation.z = v.roll;
     this.camera.rotation.x = v.pitch;
     // 速度感 FOV
