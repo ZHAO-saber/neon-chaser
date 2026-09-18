@@ -89,7 +89,8 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
     <div class="info-card"><div class="label">TIME</div><div class="value" id="timer">0.0</div></div>
   </div>
   <button id="cam-btn" class="hud-btn">视角 [C]</button>
-  <button id="music-btn" class="hud-btn">♪ 音乐</button>
+  <button id="music-btn" class="hud-btn" style="left:calc(50% + 70px)">♪ 音乐</button>
+  <button id="pause-btn" class="hud-btn" style="left:calc(50% - 130px)">❚❚</button>
   <div class="minimap"><canvas id="mm" width="256" height="256"></canvas></div>
   <div class="lap-info">
     <div class="row"><span class="tag">进度</span><span class="num" id="progress">0%</span></div>
@@ -99,6 +100,15 @@ canvas{display:block;width:100%;height:100%;touch-action:none}
 </div>
 
 <div id="countdown"><div class="num" id="cd-num">3</div></div>
+
+<div id="pause" class="overlay">
+  <h1>已暂停</h1>
+  <div class="sub">PAUSED</div>
+  <div style="margin-top:20px">
+    <button class="btn" id="resume-btn">继续</button>
+    <button class="btn ghost" id="back-menu-btn">返回菜单</button>
+  </div>
+</div>
 
 <div id="menu" class="overlay active">
   <h1>NEON CHASER</h1>
@@ -136,13 +146,13 @@ import * as THREE from 'three';
 
 // ===================== 配置 =====================
 const CFG = {
-  maxSpeed: 48,
-  gas: 0.55,
-  brakeForce: 1.2,
-  friction: 0.35,
-  steerMax: 0.75,
-  steerSpeed: 7.5,
-  highSpeedSteer: 0.72,
+  maxSpeed: 55,
+  gas: 0.32,
+  brakeForce: 1.5,
+  friction: 0.28,
+  steerMax: 0.78,
+  steerSpeed: 7.0,
+  highSpeedSteer: 0.7,
   trackWidth: 10,
   subStepMax: 1.0,
 };
@@ -152,16 +162,16 @@ const MAP_THEMES = {
     name: '霓虹都市',
     icon: '🌃',
     desc: '夜之城赛道，霓虹摩天楼，赛博朋克氛围',
-    sky: 0x0a0a1e,
-    fog: 0x0a0a1e, fogDensity: 0.012,
-    ground: 0x15152a,
-    road: 0x222238,
+    sky: 0x1a1a3e,
+    fog: 0x1a1a3e, fogDensity: 0.006,
+    ground: 0x2a2a3a,
+    road: 0x3a3a4e,
     roadLine: 0x00dcff,
     curbA: 0xff2255, curbB: 0xffffff,
     accent: 0x00dcff,
-    sun: 0xff6644, sunIntensity: 0.3,
-    ambient: 0x3344aa, ambientIntensity: 0.5,
-    buildingColors: [0x1a1a3a, 0x2a1a3a, 0x1a2a4a, 0x3a1a2a],
+    sun: 0x8899ff, sunIntensity: 0.8,
+    ambient: 0x6688cc, ambientIntensity: 0.9,
+    buildingColors: [0x2a2a4a, 0x3a2a4a, 0x2a3a5a, 0x4a2a3a],
     neonColors: [0x00dcff, 0xff3c8a, 0xb066ff, 0x39ff14, 0xffaa00],
   },
   desert: {
@@ -228,11 +238,20 @@ function makeCanvasTexture(w,h,draw){
   t.colorSpace=THREE.SRGBColorSpace;return t;
 }
 
-// ===================== 音乐系统 (Synthwave) =====================
+// ===================== 音乐系统 (Synthwave R&B) =====================
 function initAudio(){
   if(audioCtx) return;
   audioCtx = new (window.AudioContext||window.webkitAudioContext)();
 }
+
+// A minor pop progression: Am - F - C - G  (The Weeknd style)
+const CHORDS = [
+  [220.00, 261.63, 329.63], // Am
+  [174.61, 220.00, 261.63], // F
+  [261.63, 329.63, 392.00], // C
+  [196.00, 246.94, 293.66], // G
+];
+const BASS_NOTES = [110.00, 87.31, 130.81, 98.00]; // A2, F2, C3, G2
 
 function startMusic(theme){
   if(!audioCtx) initAudio();
@@ -240,124 +259,163 @@ function startMusic(theme){
   stopMusic();
   if(!musicOn) return;
 
-  const tempo = 120;
+  const tempo = 100;
   const beat = 60/tempo;
-  const t = audioCtx.currentTime;
+  const bar = beat*4;
+  const t0 = audioCtx.currentTime + 0.05;
 
-  // master
   const master = audioCtx.createGain();
-  master.gain.value = 0.35;
+  master.gain.value = 0.4;
   master.connect(audioCtx.destination);
 
-  // compressor
   const comp = audioCtx.createDynamicsCompressor();
+  comp.threshold.value = -12; comp.ratio.value = 4;
   comp.connect(master);
 
-  // --- bass line ---
-  const bassNotes = [55, 55, 82.4, 73.4, 65.4, 65.4, 82.4, 98]; // A1 pattern
+  // --- Pad chords (warm synth) ---
+  const padGain = audioCtx.createGain();
+  padGain.gain.value = 0.18;
+  padGain.connect(comp);
+
+  function playPad(startT, chord, dur){
+    chord.forEach(freq=>{
+      const osc1 = audioCtx.createOscillator();
+      osc1.type='sawtooth'; osc1.frequency.value=freq;
+      const osc2 = audioCtx.createOscillator();
+      osc2.type='sawtooth'; osc2.frequency.value=freq*1.005; // slight detune
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(0, startT);
+      g.gain.linearRampToValueAtTime(0.12, startT+0.3);
+      g.gain.setValueAtTime(0.12, startT+dur-0.3);
+      g.gain.linearRampToValueAtTime(0.001, startT+dur);
+      const filt = audioCtx.createBiquadFilter();
+      filt.type='lowpass'; filt.frequency.value=1200; filt.Q.value=1;
+      osc1.connect(filt); osc2.connect(filt); filt.connect(g); g.connect(padGain);
+      osc1.start(startT); osc1.stop(startT+dur+0.05);
+      osc2.start(startT); osc2.stop(startT+dur+0.05);
+    });
+  }
+
+  // --- Bass line ---
   const bassGain = audioCtx.createGain();
-  bassGain.gain.value = 0.5;
+  bassGain.gain.value = 0.45;
   bassGain.connect(comp);
 
-  function scheduleBass(startT){
-    for(let i=0;i<16;i++){
-      const note = bassNotes[i%bassNotes.length];
+  function playBass(startT, freq){
+    // play on each beat
+    for(let b=0;b<4;b++){
       const osc = audioCtx.createOscillator();
-      osc.type = 'sawtooth';
-      osc.frequency.value = note;
+      osc.type='sawtooth'; osc.frequency.value=freq;
       const g = audioCtx.createGain();
-      g.gain.setValueAtTime(0, startT+i*beat*0.5);
-      g.gain.linearRampToValueAtTime(0.3, startT+i*beat*0.5+0.01);
-      g.gain.exponentialRampToValueAtTime(0.001, startT+i*beat*0.5+beat*0.4);
+      const bt = startT + b*beat;
+      g.gain.setValueAtTime(0, bt);
+      g.gain.linearRampToValueAtTime(0.35, bt+0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, bt+beat*0.9);
       const filt = audioCtx.createBiquadFilter();
-      filt.type='lowpass'; filt.frequency.value=400;
+      filt.type='lowpass'; filt.frequency.value=350;
       osc.connect(filt); filt.connect(g); g.connect(bassGain);
-      osc.start(startT+i*beat*0.5);
-      osc.stop(startT+i*beat*0.5+beat*0.5);
+      osc.start(bt); osc.stop(bt+beat);
     }
   }
 
-  // --- arpeggio lead ---
-  const leadScale = [220, 261.6, 329.6, 392, 523.2, 659.2, 783.9, 523.2];
+  // --- Lead melody (catchy, in A minor pentatonic) ---
+  const leadNotes = [
+    440, 523.25, 659.25, 523.25, 440, 392, 440, 523.25,
+    587.33, 659.25, 783.99, 659.25, 587.33, 523.25, 440, 392,
+  ];
   const leadGain = audioCtx.createGain();
-  leadGain.gain.value = 0.15;
+  leadGain.gain.value = 0.12;
   leadGain.connect(comp);
 
-  function scheduleLead(startT){
-    for(let i=0;i<32;i++){
-      const note = leadScale[i%leadScale.length];
+  function playLead(startT){
+    for(let i=0;i<16;i++){
+      const note = leadNotes[i];
       const osc = audioCtx.createOscillator();
-      osc.type = 'square';
-      osc.frequency.value = note;
+      osc.type='triangle'; osc.frequency.value=note;
       const g = audioCtx.createGain();
-      const t0 = startT+i*beat*0.25;
-      g.gain.setValueAtTime(0, t0);
-      g.gain.linearRampToValueAtTime(0.2, t0+0.005);
-      g.gain.exponentialRampToValueAtTime(0.001, t0+beat*0.2);
+      const nt = startT + i*beat*0.5;
+      g.gain.setValueAtTime(0, nt);
+      g.gain.linearRampToValueAtTime(0.25, nt+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, nt+beat*0.45);
+      const delay = audioCtx.createDelay();
+      delay.delayTime.value = beat*0.375;
+      const fb = audioCtx.createGain(); fb.gain.value=0.3;
       const filt = audioCtx.createBiquadFilter();
-      filt.type='lowpass'; filt.frequency.value=2500; filt.Q.value=5;
+      filt.type='lowpass'; filt.frequency.value=3000;
       osc.connect(filt); filt.connect(g); g.connect(leadGain);
-      osc.start(t0); osc.stop(t0+beat*0.22);
+      g.connect(delay); delay.connect(fb); fb.connect(delay); delay.connect(leadGain);
+      osc.start(nt); osc.stop(nt+beat*0.5);
     }
   }
 
-  // --- drums ---
+  // --- Drums (modern R&B beat) ---
   const drumGain = audioCtx.createGain();
-  drumGain.gain.value = 0.4;
+  drumGain.gain.value = 0.5;
   drumGain.connect(comp);
 
   function kick(time){
     const osc = audioCtx.createOscillator();
-    osc.frequency.setValueAtTime(120, time);
-    osc.frequency.exponentialRampToValueAtTime(40, time+0.12);
+    osc.frequency.setValueAtTime(140, time);
+    osc.frequency.exponentialRampToValueAtTime(45, time+0.12);
     const g = audioCtx.createGain();
-    g.gain.setValueAtTime(0.8, time);
-    g.gain.exponentialRampToValueAtTime(0.001, time+0.15);
+    g.gain.setValueAtTime(0.9, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time+0.18);
     osc.connect(g); g.connect(drumGain);
-    osc.start(time); osc.stop(time+0.16);
+    osc.start(time); osc.stop(time+0.2);
   }
   function snare(time){
-    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate*0.2, audioCtx.sampleRate);
+    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate*0.18, audioCtx.sampleRate);
     const d = buf.getChannelData(0);
-    for(let i=0;i<d.length;i++) d[i] = Math.random()*2-1;
+    for(let i=0;i<d.length;i++) d[i] = (Math.random()*2-1) * Math.pow(1-i/d.length, 2);
     const src = audioCtx.createBufferSource(); src.buffer = buf;
-    const filt = audioCtx.createBiquadFilter(); filt.type='highpass'; filt.frequency.value=1000;
+    const filt = audioCtx.createBiquadFilter(); filt.type='highpass'; filt.frequency.value=1500;
     const g = audioCtx.createGain();
-    g.gain.setValueAtTime(0.5, time);
-    g.gain.exponentialRampToValueAtTime(0.001, time+0.1);
+    g.gain.setValueAtTime(0.45, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time+0.12);
     src.connect(filt); filt.connect(g); g.connect(drumGain);
-    src.start(time); src.stop(time+0.12);
+    src.start(time); src.stop(time+0.14);
   }
-  function hihat(time){
-    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate*0.05, audioCtx.sampleRate);
+  function hihat(time, open){
+    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate*(open?0.15:0.05), audioCtx.sampleRate);
     const d = buf.getChannelData(0);
     for(let i=0;i<d.length;i++) d[i] = Math.random()*2-1;
     const src = audioCtx.createBufferSource(); src.buffer = buf;
-    const filt = audioCtx.createBiquadFilter(); filt.type='highpass'; filt.frequency.value=7000;
+    const filt = audioCtx.createBiquadFilter(); filt.type='highpass'; filt.frequency.value=8000;
     const g = audioCtx.createGain();
-    g.gain.setValueAtTime(0.15, time);
-    g.gain.exponentialRampToValueAtTime(0.001, time+0.03);
+    g.gain.setValueAtTime(open?0.12:0.08, time);
+    g.gain.exponentialRampToValueAtTime(0.001, time+(open?0.12:0.03));
     src.connect(filt); filt.connect(g); g.connect(drumGain);
-    src.start(time); src.stop(time+0.04);
+    src.start(time); src.stop(time+(open?0.16:0.04));
   }
 
-  function scheduleDrums(startT){
-    for(let i=0;i<16;i++){
-      kick(startT+i*beat);
-      if(i%2===1) snare(startT+i*beat);
-      hihat(startT+i*beat*0.5);
-      hihat(startT+i*beat);
+  function playDrums(startT){
+    for(let b=0;b<4;b++){
+      kick(startT + b*beat);
+      if(b===1 || b===3) snare(startT + b*beat);
+      hihat(startT + b*beat, false);
+      hihat(startT + b*beat + beat*0.5, b===2);
     }
   }
 
-  // loop
-  const loopLen = beat*16;
-  scheduleBass(t); scheduleLead(t); scheduleDrums(t);
+  // schedule 4 bars then loop
+  const barDur = bar; // rename to avoid conflict with loop var
+  function scheduleBars(startT){
+    for(let bi=0; bi<4; bi++){
+      const bt = startT + bi*barDur;
+      const chordIdx = bi % 4;
+      playPad(bt, CHORDS[chordIdx], barDur);
+      playBass(bt, BASS_NOTES[chordIdx]);
+      playLead(bt);
+      playDrums(bt);
+    }
+  }
+
+  const loopDur = barDur*4;
+  scheduleBars(t0);
   const loopTimer = setInterval(()=>{
     if(!musicNodes){clearInterval(loopTimer);return}
-    const now = audioCtx.currentTime;
-    scheduleBass(now); scheduleLead(now); scheduleDrums(now);
-  }, loopLen*1000);
+    scheduleBars(audioCtx.currentTime + 0.05);
+  }, loopDur*1000);
 
   musicNodes = {master, loopTimer};
 }
@@ -384,7 +442,7 @@ function initScene(){
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.1;
+  renderer.toneMappingExposure = 1.4;
   document.body.appendChild(renderer.domElement);
 
   window.addEventListener('resize', onResize);
@@ -414,12 +472,16 @@ function applyTheme(theme){
   sun.shadow.camera.near=1; sun.shadow.camera.far=400;
   scene.add(sun);
   // rim light
-  const rim = new THREE.DirectionalLight(theme.accent, 0.4);
+  const rim = new THREE.DirectionalLight(theme.accent, 0.6);
   rim.position.set(-30, 50, -30);
   scene.add(rim);
+  // fill light from front
+  const fill = new THREE.DirectionalLight(0xffffff, 0.3);
+  fill.position.set(0, 30, 50);
+  scene.add(fill);
 
   // hemi for nicer ambient
-  const hemi = new THREE.HemisphereLight(theme.sky, theme.ground, 0.4);
+  const hemi = new THREE.HemisphereLight(theme.sky, theme.ground, 0.7);
   scene.add(hemi);
 }
 
@@ -485,19 +547,19 @@ function buildTrack(){
   const roadTex = makeCanvasTexture(256, 256, (ctx,w,h)=>{
     ctx.fillStyle = '#'+theme.road.toString(16).padStart(6,'0');
     ctx.fillRect(0,0,w,h);
-    // center dashed line
+    // center dashed line - bright and thick
     ctx.strokeStyle = '#'+theme.roadLine.toString(16).padStart(6,'0');
-    ctx.lineWidth = 6;
-    ctx.setLineDash([20,20]);
+    ctx.lineWidth = 10;
+    ctx.setLineDash([24,18]);
     ctx.beginPath(); ctx.moveTo(w/2,0); ctx.lineTo(w/2,h); ctx.stroke();
-    // edges
+    // edge lines
     ctx.setLineDash([]);
-    ctx.strokeStyle = '#'+theme.curbA.toString(16).padStart(6,'0');
-    ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(8,0); ctx.lineTo(8,h); ctx.moveTo(w-8,0); ctx.lineTo(w-8,h); ctx.stroke();
+    ctx.strokeStyle = '#'+theme.roadLine.toString(16).padStart(6,'0');
+    ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(10,h); ctx.moveTo(w-10,0); ctx.lineTo(w-10,h); ctx.stroke();
     // asphalt noise
-    for(let i=0;i<3000;i++){
-      ctx.fillStyle = `rgba(0,0,0,${Math.random()*0.15})`;
+    for(let i=0;i<2000;i++){
+      ctx.fillStyle = `rgba(0,0,0,${Math.random()*0.1})`;
       ctx.fillRect(Math.random()*w, Math.random()*h, 2, 2);
     }
   });
@@ -940,7 +1002,7 @@ const OBSTACLE_TYPES = ['cone','banana','pole','pedestrian','oil'];
 
 function spawnObstacles(){
   obstacles = [];
-  const count = Math.floor(trackLength / 25);
+  const count = Math.floor(trackLength / 30);
   for(let i=0;i<count;i++){
     const t = (i+1)/(count+1);
     const p = trackCurve.getPointAt(t);
@@ -952,8 +1014,9 @@ function spawnObstacles(){
     const mesh = createObstacleMesh(type);
     mesh.position.copy(pos);
     mesh.position.y = getObstacleY(type);
+    mesh.scale.setScalar(2.2);
     worldGroup.add(mesh);
-    obstacles.push({type, pos: mesh.position, mesh, radius: getObstacleRadius(type), active:true});
+    obstacles.push({type, pos: mesh.position, mesh, radius: getObstacleRadius(type)*2.2, active:true});
   }
 }
 
@@ -1035,8 +1098,10 @@ function createObstacleMesh(type){
 }
 
 function getObstacleY(type){
-  if(type==='oil') return 0.02;
-  if(type==='banana') return 0.1;
+  const s = 2.2;
+  if(type==='cone') return 0.4*s;
+  if(type==='banana') return 0.1*s;
+  if(type==='pedestrian') return 0.5*s;
   return 0;
 }
 function getObstacleRadius(type){
@@ -1061,7 +1126,7 @@ function spawnAI(){
     aiCars.push({
       mesh: aiCar,
       t: 0.05*(i+1),
-      speed: rand(0.25, 0.35),
+      speed: rand(0.04, 0.07),
       offset: rand(-3, 3),
       color: colors[i]
     });
@@ -1273,19 +1338,21 @@ function updateCamera(dt){
 
   if(cameraMode===3){
     // third person chase
-    const target = carPos.clone().addScaledVector(fwd, -10);
-    target.y += 5;
-    camera.position.lerp(target, 0.1);
-    const lookAt = carPos.clone().addScaledVector(fwd, 5);
-    lookAt.y += 1;
+    car.visible = true;
+    const target = carPos.clone().addScaledVector(fwd, -11);
+    target.y += 6;
+    camera.position.lerp(target, 0.12);
+    const lookAt = carPos.clone().addScaledVector(fwd, 6);
+    lookAt.y += 1.5;
     camera.lookAt(lookAt);
   } else {
-    // first person cockpit
-    const target = carPos.clone().addScaledVector(fwd, 0.5);
-    target.y += 1.4;
-    camera.position.lerp(target, 0.3);
-    const lookAt = carPos.clone().addScaledVector(fwd, 10);
-    lookAt.y += 1.2;
+    // first person cockpit - hide body, sit at driver height
+    car.visible = false;
+    const target = carPos.clone().addScaledVector(fwd, 0.3);
+    target.y += 2.2;
+    camera.position.lerp(target, 0.4);
+    const lookAt = carPos.clone().addScaledVector(fwd, 15);
+    lookAt.y += 2.0;
     camera.lookAt(lookAt);
   }
 }
@@ -1376,7 +1443,7 @@ function animate(){
     updateAI(dt);
     updateHUD();
   }
-  if(car) updateCamera(dt);
+  if(car && gameState!=='menu') updateCamera(dt);
 
   renderer.render(scene, camera);
 }
@@ -1389,6 +1456,10 @@ function setupInput(){
     if(e.key==='w'||e.key==='W'||e.key==='ArrowUp') input.gas=true;
     if(e.key==='s'||e.key==='S'||e.key==='ArrowDown') input.brake=true;
     if(e.key==='c'||e.key==='C') toggleCamera();
+    if(e.key==='Escape'){
+      if(gameState==='racing') pauseGame();
+      else if(gameState==='paused') resumeGame();
+    }
   });
   window.addEventListener('keyup', e=>{
     if(e.key==='a'||e.key==='A'||e.key==='ArrowLeft') input.left=false;
@@ -1411,6 +1482,33 @@ function setupInput(){
 function toggleCamera(){
   cameraMode = cameraMode===3 ? 1 : 3;
   document.getElementById('cam-btn').textContent = cameraMode===1 ? '视角: 车内 [C]' : '视角: 追尾 [C]';
+}
+
+function pauseGame(){
+  if(gameState!=='racing') return;
+  gameState = 'paused';
+  document.getElementById('pause').classList.add('active');
+  if(musicOn && audioCtx) audioCtx.suspend();
+}
+function resumeGame(){
+  if(gameState!=='paused') return;
+  gameState = 'racing';
+  document.getElementById('pause').classList.remove('active');
+  if(musicOn && audioCtx) audioCtx.resume();
+}
+function backToMenu(){
+  gameState = 'menu';
+  stopMusic();
+  if(car){ scene.remove(car); car=null; }
+  aiCars.forEach(a=>scene.remove(a.mesh));
+  aiCars = [];
+  obstacles = [];
+  if(worldGroup){ scene.remove(worldGroup); worldGroup=null; }
+  document.getElementById('pause').classList.remove('active');
+  document.getElementById('result').classList.remove('active');
+  document.getElementById('hud').classList.remove('active');
+  document.getElementById('countdown').classList.remove('active');
+  document.getElementById('menu').classList.add('active');
 }
 
 // ===================== 菜单 =====================
@@ -1437,15 +1535,12 @@ function buildMenu(){
 
   document.getElementById('start-btn').onclick = ()=>{ if(selectedMap) startRace(selectedMap); };
   document.getElementById('retry-btn').onclick = ()=>{ if(selectedMap) startRace(selectedMap); };
-  document.getElementById('menu-btn').onclick = ()=>{
-    document.getElementById('result').classList.remove('active');
-    document.getElementById('menu').classList.add('active');
-    document.getElementById('hud').classList.remove('active');
-    gameState = 'menu';
-    stopMusic();
-  };
+  document.getElementById('menu-btn').onclick = backToMenu;
   document.getElementById('cam-btn').onclick = toggleCamera;
   document.getElementById('music-btn').onclick = toggleMusic;
+  document.getElementById('pause-btn').onclick = pauseGame;
+  document.getElementById('resume-btn').onclick = resumeGame;
+  document.getElementById('back-menu-btn').onclick = backToMenu;
 }
 
 function toggleMusic(){
