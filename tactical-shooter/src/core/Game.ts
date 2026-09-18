@@ -22,6 +22,8 @@ export class Game {
   private clock = new THREE.Clock();
   private running = false;
   private playerHP = 100;
+  private fovSetting = 90;
+  private wasScoped = false;
 
   // 弹道线渲染
   private tracerLines: THREE.Line[] = [];
@@ -34,6 +36,15 @@ export class Game {
     this.bullets = new BulletSystem(this.renderer.scene);
     this.ui = new UISystem();
     this.weaponView = new WeaponView(this.renderer.camera);
+
+    // 设置面板回调
+    this.ui.onSettingsChange = (s) => {
+      this.input.sensitivity = s.sensitivity;
+      this.fovSetting = s.fov;
+    };
+    // 初始同步
+    this.input.sensitivity = this.ui.settings.sensitivity;
+    this.fovSetting = this.ui.settings.fov;
 
     this.setup();
   }
@@ -105,6 +116,11 @@ export class Game {
 
   private loop = (): void => {
     if (!this.running) return;
+    // 设置面板打开时暂停游戏
+    if (this.ui.settingsOpen) {
+      this.renderer.render();
+      return;
+    }
     requestAnimationFrame(this.loop);
 
     const dt = Math.min(this.clock.getDelta(), 0.05);
@@ -118,11 +134,27 @@ export class Game {
     const effectiveYaw = this.input.yaw + this.weapon.recoilYawOffset;
     const effectivePitch = this.input.pitch - this.weapon.recoilPitchOffset;
 
-    // 更新相机
+    // 更新相机（应用头部摆动偏移）
     const eye = this.player.getEyePosition();
+    // 摆动沿右方向偏移 X，沿上方向偏移 Y
+    const rightVec = new THREE.Vector3(Math.cos(effectiveYaw), 0, -Math.sin(effectiveYaw));
+    eye.add(rightVec.multiplyScalar(this.player.bobOffsetX));
+    eye.y += this.player.bobOffsetY;
     this.renderer.camera.position.copy(eye);
     this.renderer.camera.rotation.y = effectiveYaw;
     this.renderer.camera.rotation.x = effectivePitch;
+
+    // 开镜切换（右键边沿触发）
+    if (input.scope && !this.wasScoped) {
+      this.weapon.toggleScope();
+    }
+    this.wasScoped = input.scope;
+    // 开镜时缩放 FOV + 准星隐藏
+    const w = this.weapon.getCurrent();
+    this.ui.setScoped(w.scoped);
+    const targetFOV = w.scoped ? 90 / w.config.scopeZoom : this.fovSetting;
+    const curFOV = this.renderer.camera.fov;
+    this.renderer.setFOV(curFOV + (targetFOV - curFOV) * Math.min(1, dt * 10));
 
     // 武器系统更新
     this.weapon.update(now, dt);

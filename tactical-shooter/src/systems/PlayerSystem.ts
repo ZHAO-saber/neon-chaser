@@ -21,6 +21,12 @@ export class PlayerSystem {
   pitch = 0;
   onGround = false;
   crouching = false;
+  /** 头部摆动相位（累积） */
+  bobPhase = 0;
+  /** 当前摆动偏移（Y方向） */
+  bobOffsetY = 0;
+  /** 当前摆动偏移（X方向，左右轻晃） */
+  bobOffsetX = 0;
 
   private blocks: MapBlock[] = [];
 
@@ -82,6 +88,22 @@ export class PlayerSystem {
       this.position.y = PLAYER_HEIGHT;
       this.velocity.y = 0;
       this.onGround = true;
+    }
+
+    // 头部摆动：只在地面移动时触发
+    const horizontalSpeed = Math.sqrt(this.velocity.x ** 2 + this.velocity.z ** 2);
+    if (this.onGround && horizontalSpeed > 0.5) {
+      // 摆动频率随速度变化，走路频率低、跑步频率高
+      const bobFreq = horizontalSpeed * 1.2;
+      this.bobPhase += bobFreq * dt;
+      // 摆动幅度：走路小、跑步大，蹲伏最小
+      const amp = this.crouching ? 0.015 : (input.walk ? 0.025 : 0.04);
+      this.bobOffsetY = Math.sin(this.bobPhase * 2) * amp;
+      this.bobOffsetX = Math.cos(this.bobPhase) * amp * 0.6;
+    } else {
+      // 停止时平滑回零
+      this.bobOffsetY *= Math.max(0, 1 - 10 * dt);
+      this.bobOffsetX *= Math.max(0, 1 - 10 * dt);
     }
   }
 
