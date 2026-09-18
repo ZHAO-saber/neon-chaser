@@ -3,1376 +3,1415 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-<title>NEON CHASER · 霓虹追逐</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<title>Cockpit Racer · 座舱赛车</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;color:#fff;touch-action:none;-webkit-user-select:none;user-select:none}
-canvas{display:block;width:100%;height:100%;touch-action:none}
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000;
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; color: #fff;
+    touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
-#hud{position:fixed;inset:0;pointer-events:none;z-index:10;display:none}
-#hud.active{display:block}
-.top-bar{position:absolute;top:14px;left:0;right:0;display:flex;justify-content:space-between;padding:0 24px}
-.info-card{background:rgba(5,10,20,.6);border:1px solid rgba(0,220,255,.3);border-radius:10px;padding:7px 14px;backdrop-filter:blur(6px)}
-.info-card .label{font-size:10px;letter-spacing:2px;color:#7ad9e8;opacity:.85}
-.info-card .value{font-size:20px;font-weight:700;color:#eaffff}
-.info-card .value .unit{font-size:11px;color:#7ad9e8;margin-left:3px;font-weight:400}
+  /* ===== HUD ===== */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; display: none; }
+  #hud.active { display: block; }
 
-.speedo{position:absolute;bottom:22px;right:26px;width:140px;height:140px;background:rgba(5,10,20,.6);border:2px solid rgba(0,220,255,.5);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 0 30px rgba(0,220,255,.25),inset 0 0 20px rgba(0,220,255,.1)}
-.speedo #speed-val{font-size:38px;font-weight:800;color:#eaffff;text-shadow:0 0 12px rgba(0,220,255,.7);line-height:1}
-.speedo #speed-unit{font-size:12px;color:#7ad9e8;margin-top:2px}
+  /* 顶部信息条 */
+  .top-bar { position: absolute; top: 16px; left: 0; right: 0; display: flex;
+    justify-content: space-between; padding: 0 28px; }
+  .info-card { background: rgba(0,0,0,.45); border: 1px solid rgba(0,220,255,.35);
+    border-radius: 10px; padding: 8px 16px; backdrop-filter: blur(6px);
+    box-shadow: 0 0 18px rgba(0,220,255,.15); }
+  .info-card .label { font-size: 11px; letter-spacing: 2px; color: #7ad9e8; opacity: .85; }
+  .info-card .value { font-size: 22px; font-weight: 700; color: #eaffff; }
+  .info-card .value .unit { font-size: 12px; color: #7ad9e8; margin-left: 3px; font-weight: 400; }
 
-.lap-info{position:absolute;bottom:26px;left:26px}
-.lap-info .row{display:flex;gap:10px;margin-bottom:3px}
-.lap-info .tag{color:#7ad9e8;font-size:11px;width:60px}
-.lap-info .num{color:#eaffff;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+  /* 速度表 */
+  .speedo { position: absolute; bottom: 26px; right: 30px; width: 150px; height: 150px;
+    background: rgba(0,0,0,.5); border: 2px solid rgba(0,220,255,.5); border-radius: 50%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    box-shadow: 0 0 30px rgba(0,220,255,.25), inset 0 0 20px rgba(0,220,255,.1); }
+  .speedo #speed-val { font-size: 40px; font-weight: 800; color: #eaffff;
+    text-shadow: 0 0 12px rgba(0,220,255,.7); line-height: 1; }
+  .speedo #speed-unit { font-size: 13px; color: #7ad9e8; margin-top: 2px; }
+  .speedo #gear { position: absolute; bottom: 18px; font-size: 15px; color: #ff9a3c; font-weight: 700; }
 
-.minimap{position:absolute;top:64px;left:24px;width:130px;height:130px;background:rgba(5,10,20,.6);border:1px solid rgba(0,220,255,.4);border-radius:8px;overflow:hidden}
-.minimap canvas{width:100%;height:100%}
+  /* 圈速 */
+  .lap-info { position: absolute; bottom: 30px; left: 30px; }
+  .lap-info .row { display: flex; gap: 10px; margin-bottom: 4px; }
+  .lap-info .tag { color: #7ad9e8; font-size: 12px; width: 70px; }
+  .lap-info .num { color: #eaffff; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
 
-.hud-btn{position:absolute;pointer-events:auto;background:rgba(5,10,20,.6);border:1px solid rgba(0,220,255,.4);border-radius:8px;color:#eaffff;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;backdrop-filter:blur(4px);transition:all .15s}
-.hud-btn:hover{background:rgba(0,220,255,.2);box-shadow:0 0 14px rgba(0,220,255,.4)}
-#cam-btn{top:14px;left:50%;transform:translateX(-50%)}
-#music-btn{top:14px;left:calc(50% + 70px)}
-#pause-btn{top:14px;left:calc(50% - 130px)}
+  /* 排名 */
+  .rank-badge { position: absolute; top: 70px; right: 28px; background: rgba(0,0,0,.5);
+    border: 1px solid rgba(255,154,60,.5); border-radius: 10px; padding: 8px 16px; text-align: center; }
+  .rank-badge .r-label { font-size: 11px; color: #ff9a3c; letter-spacing: 2px; }
+  .rank-badge .r-val { font-size: 24px; font-weight: 800; color: #ffe6c2; }
 
-.overlay{position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(8,12,28,.92),rgba(0,0,0,.98));display:none;align-items:center;justify-content:center;z-index:50;flex-direction:column;padding:20px}
-.overlay.active{display:flex}
-.overlay h1{font-size:52px;font-weight:900;letter-spacing:8px;background:linear-gradient(90deg,#00dcff,#b066ff,#ff3c8a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;text-align:center}
-.overlay .sub{color:#7ad9e8;letter-spacing:6px;font-size:13px;margin-bottom:30px;text-align:center}
+  /* 小地图 */
+  .minimap { position: absolute; top: 70px; left: 28px; width: 140px; height: 140px;
+    background: rgba(0,0,0,.5); border: 1px solid rgba(0,220,255,.4); border-radius: 8px; overflow: hidden; }
+  .minimap canvas { width: 100%; height: 100%; }
 
-.map-grid{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;max-width:900px;margin-bottom:24px}
-.map-card-wrap{width:240px;height:300px;border-radius:14px;overflow:hidden;cursor:pointer;border:2px solid rgba(255,255,255,.15);transition:all .25s}
-.map-card-wrap:hover{transform:translateY(-6px);border-color:rgba(0,220,255,.6);box-shadow:0 12px 40px rgba(0,220,255,.3)}
-.map-card-wrap.selected{border-color:#00dcff;box-shadow:0 0 30px rgba(0,220,255,.5)}
-.map-thumb{width:100%;height:180px;display:flex;align-items:center;justify-content:center;font-size:60px}
-.map-info{padding:12px;background:rgba(5,10,20,.8)}
-.map-info h3{font-size:16px;margin-bottom:4px}
-.map-info p{font-size:11px;color:#9ab;line-height:1.4}
+  /* 倒计时 */
+  #countdown { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    z-index: 30; pointer-events: none; }
+  #countdown.active { display: flex; }
+  #countdown .num { font-size: 160px; font-weight: 900; color: #fff;
+    text-shadow: 0 0 40px rgba(0,220,255,.8); animation: pop .8s ease-out; }
+  @keyframes pop { 0%{transform:scale(.4);opacity:0} 40%{opacity:1} 100%{transform:scale(1.4);opacity:0} }
 
-.btn{background:linear-gradient(135deg,#00a8cc,#00dcff);border:none;color:#001018;padding:12px 40px;font-size:16px;font-weight:700;border-radius:8px;cursor:pointer;letter-spacing:2px;transition:transform .15s,box-shadow .15s;margin:6px}
-.btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,220,255,.4)}
-.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
-.btn.ghost{background:transparent;border:1px solid rgba(0,220,255,.5);color:#7ad9e8}
+  /* ===== 菜单 ===== */
+  .overlay { position: fixed; inset: 0; background: radial-gradient(ellipse at center, rgba(8,20,30,.85), rgba(0,0,0,.95));
+    display: none; align-items: center; justify-content: center; z-index: 50; flex-direction: column; }
+  .overlay.active { display: flex; }
+  .overlay h1 { font-size: 56px; font-weight: 900; letter-spacing: 6px;
+    background: linear-gradient(90deg, #00dcff, #7ad9e8); -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent; margin-bottom: 8px; }
+  .overlay .sub { color: #7ad9e8; letter-spacing: 4px; font-size: 14px; margin-bottom: 36px; }
+  .panel { background: rgba(10,20,30,.7); border: 1px solid rgba(0,220,255,.3); border-radius: 14px;
+    padding: 28px 40px; max-width: 520px; text-align: center; }
+  .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; margin: 18px 0; text-align: left; }
+  .controls-grid .key { display: inline-block; background: rgba(0,220,255,.15); border: 1px solid rgba(0,220,255,.4);
+    border-radius: 5px; padding: 2px 8px; font-size: 12px; min-width: 60px; text-align: center; color: #eaffff; }
+  .controls-grid .desc { color: #b8d4e0; font-size: 13px; }
+  .btn { background: linear-gradient(135deg, #00a8cc, #00dcff); border: none; color: #001018;
+    padding: 12px 36px; font-size: 16px; font-weight: 700; border-radius: 8px; cursor: pointer;
+    letter-spacing: 2px; transition: transform .15s, box-shadow .15s; margin: 6px; }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,220,255,.4); }
+  .btn.ghost { background: transparent; border: 1px solid rgba(0,220,255,.5); color: #7ad9e8; }
+  .result-row { display: flex; justify-content: space-between; padding: 6px 0; color: #b8d4e0; font-size: 15px; }
+  .result-row .v { color: #eaffff; font-weight: 600; font-variant-numeric: tabular-nums; }
 
-#countdown{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:30;pointer-events:none}
-#countdown.active{display:flex}
-#countdown .num{font-size:150px;font-weight:900;color:#fff;text-shadow:0 0 50px rgba(0,220,255,.9);animation:pop .8s ease-out}
-@keyframes pop{0%{transform:scale(.3);opacity:0}40%{opacity:1}100%{transform:scale(1.5);opacity:0}}
-
-#touch{position:fixed;inset:0;display:none;z-index:15;pointer-events:none}
-#touch.active{display:block}
-.t-btn{position:absolute;width:72px;height:72px;border-radius:50%;background:rgba(0,220,255,.15);border:2px solid rgba(0,220,255,.5);color:#eaffff;font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center;pointer-events:auto;user-select:none;backdrop-filter:blur(4px)}
-.t-btn:active{background:rgba(0,220,255,.4)}
-.t-left{left:20px;bottom:110px}
-.t-right{left:108px;bottom:110px}
-.t-gas{right:20px;bottom:110px}
-.t-brake{right:108px;bottom:30px}
-
-.result-row{display:flex;justify-content:space-between;padding:5px 0;color:#b8d4e0;font-size:14px}
-.result-row .v{color:#eaffff;font-weight:600;font-variant-numeric:tabular-nums}
+  /* 触控按钮 */
+  #touch { position: fixed; inset: 0; display: none; z-index: 15; pointer-events: none; }
+  #touch.active { display: block; }
+  .t-btn { position: absolute; width: 80px; height: 80px; border-radius: 50%;
+    background: rgba(0,220,255,.15); border: 2px solid rgba(0,220,255,.5); color: #eaffff;
+    font-size: 22px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    pointer-events: auto; user-select: none; -webkit-user-select: none; backdrop-filter: blur(4px); }
+  .t-btn:active { background: rgba(0,220,255,.4); }
+  .t-left { left: 24px; bottom: 120px; }
+  .t-right { left: 120px; bottom: 120px; }
+  .t-gas { right: 24px; bottom: 120px; }
+  .t-brake { right: 120px; bottom: 40px; }
 </style>
 </head>
 <body>
+<canvas id="game"></canvas>
+
+<!-- HUD -->
 <div id="hud">
   <div class="top-bar">
-    <div class="info-card"><div class="label">DISTANCE</div><div class="value"><span id="dist">0</span><span class="unit">m</span></div></div>
-    <div class="info-card"><div class="label">TIME</div><div class="value" id="timer">0.0</div></div>
+    <div class="info-card"><div class="label">LAP 圈数</div><div class="value"><span id="lap-cur">1</span>/<span id="lap-total">3</span></div></div>
+    <div class="info-card"><div class="label">TIME 用时</div><div class="value" id="race-time">00:00.00</div></div>
   </div>
-  <button id="cam-btn" class="hud-btn">视角 [C]</button>
-  <button id="music-btn" class="hud-btn">♪ 音乐</button>
-  <button id="pause-btn" class="hud-btn">❚❚</button>
-  <div class="minimap"><canvas id="mm" width="256" height="256"></canvas></div>
+  <div class="minimap"><canvas id="minimap" width="280" height="280"></canvas></div>
+  <div class="rank-badge"><div class="r-label">POSITION</div><div class="r-val"><span id="rank-cur">1</span>/<span id="rank-total">3</span></div></div>
   <div class="lap-info">
-    <div class="row"><span class="tag">进度</span><span class="num" id="progress">0%</span></div>
-    <div class="row"><span class="tag">最佳</span><span class="num" id="best">--</span></div>
+    <div class="row"><span class="tag">CURRENT</span><span class="num" id="lap-time">00:00.00</span></div>
+    <div class="row"><span class="tag">BEST</span><span class="num" id="best-lap">--:--.--</span></div>
   </div>
-  <div class="speedo"><div id="speed-val">0</div><div id="speed-unit">KM/H</div></div>
+  <div class="speedo">
+    <div id="speed-val">0</div>
+    <div id="speed-unit">KM/H</div>
+    <div id="gear">N</div>
+  </div>
 </div>
 
 <div id="countdown"><div class="num" id="cd-num">3</div></div>
 
-<div id="pause" class="overlay">
-  <h1>已暂停</h1>
-  <div class="sub">PAUSED</div>
-  <div style="margin-top:20px">
-    <button class="btn" id="resume-btn">继续</button>
-    <button class="btn ghost" id="back-menu-btn">返回菜单</button>
+<!-- 开始菜单 -->
+<div id="menu-start" class="overlay active">
+  <h1>COCKPIT RACER</h1>
+  <div class="sub">第三人称 · 自动前进 · 左右躲避障碍</div>
+  <div class="panel">
+    <h3 style="color:#7ad9e8;margin-bottom:10px;letter-spacing:2px">操 作 说 明</h3>
+    <div class="controls-grid">
+      <div><span class="key">◀ ▶ 按钮</span></div><div class="desc">左右转向</div>
+      <div><span class="key">滑动 ←→</span></div><div class="desc">触屏滑动转向</div>
+      <div><span class="key">A / D</span></div><div class="desc">键盘左右</div>
+      <div><span class="key">ESC / P</span></div><div class="desc">暂停</div>
+    </div>
+    <button class="btn" id="btn-start">开 始 比 赛</button>
   </div>
 </div>
 
-<div id="menu" class="overlay active">
-  <h1>NEON CHASER</h1>
-  <div class="sub">霓 虹 追 逐</div>
-  <div class="map-grid" id="map-grid"></div>
-  <button class="btn" id="start-btn" disabled>开始比赛</button>
-</div>
-
-<div id="result" class="overlay">
-  <h1 id="res-title">完赛</h1>
-  <div class="sub" id="res-sub"></div>
-  <div class="panel" style="min-width:320px;background:rgba(10,20,30,.7);border:1px solid rgba(0,220,255,.3);border-radius:14px;padding:20px 30px;margin:14px 0">
-    <div class="result-row"><span>距离</span><span class="v" id="r-dist">0 m</span></div>
-    <div class="result-row"><span>用时</span><span class="v" id="r-time">0.0 s</span></div>
-    <div class="result-row"><span>最高速</span><span class="v" id="r-speed">0 km/h</span></div>
-  </div>
-  <div style="margin-top:10px">
-    <button class="btn" id="retry-btn">再来一局</button>
-    <button class="btn ghost" id="menu-btn">换地图</button>
+<!-- 暂停菜单 -->
+<div id="menu-pause" class="overlay">
+  <h1 style="font-size:42px">已 暂 停</h1>
+  <div class="panel">
+    <button class="btn" id="btn-resume">继 续</button>
+    <button class="btn ghost" id="btn-restart">重 新 开 始</button>
+    <button class="btn ghost" id="btn-menu">返 回 主 菜 单</button>
   </div>
 </div>
 
+<!-- 结束菜单 -->
+<div id="menu-finish" class="overlay">
+  <h1 id="finish-title">比 赛 结 束</h1>
+  <div class="panel" style="min-width:340px">
+    <div class="result-row"><span>最终排名</span><span class="v" id="final-rank">—</span></div>
+    <div class="result-row"><span>总用时</span><span class="v" id="final-time">--:--.--</span></div>
+    <div class="result-row"><span>最快圈速</span><span class="v" id="final-best">--:--.--</span></div>
+    <div style="margin-top:20px">
+      <button class="btn" id="btn-again">再 来 一 局</button>
+      <button class="btn ghost" id="btn-home">主 菜 单</button>
+    </div>
+  </div>
+</div>
+
+<!-- 触控：左右转向（自动前进，只需躲避） -->
 <div id="touch">
-  <div class="t-btn t-left" data-k="left">◀</div>
-  <div class="t-btn t-right" data-k="right">▶</div>
-  <div class="t-btn t-gas" data-k="gas">▲</div>
-  <div class="t-btn t-brake" data-k="brake">▼</div>
+  <div class="t-btn t-left" data-key="left">◀</div>
+  <div class="t-btn t-right" data-key="right">▶</div>
 </div>
 
-<script type="importmap">
-{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","cannon":"https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"}}
-</script>
-<script type="module">
-import * as THREE from 'three';
-import * as CANNON from 'cannon';
+<!-- Three.js (jsDelivr CDN，国内外移动网络更稳) -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 
-// ===================== 配置 =====================
+<script>
+/* =========================================================================
+   COCKPIT RACER — 单文件第一人称3D赛车
+   模块: CONFIG / INPUT / AUDIO / TRACK / VEHICLE / AI / RENDER / GAME / HUD / MAIN
+   参考: esc5221/drive-game(240Hz物理+座舱) · icurtis1/raycast-vehicle(射线悬挂)
+         ranton256/LowPolyCartJS(程序化赛道) · Antonio-R1/engine-sound-generator(Web Audio)
+         cconsta1/threejs_car_demo(HUD+圈速)
+   ========================================================================= */
+'use strict';
+
+/* ============================ 1. CONFIG ============================ */
 const CFG = {
-  carMass: 1200,
-  engineForce: 8500,       // 提升加速感，终端速度约 200km/h
-  brakeForce: 8000,
-  maxSteer: 0.55,
-  steerSpeed: 4.2,
-  linearDamping: 0.12,     // 降低阻尼，否则车速上不去
-  angularDamping: 0.6,
-  trackWidth: 10,
-  maxSpeed: 80,            // m/s 上限 ~288km/h
-  downForce: 1.0,          // 下压力系数，防飞天
-};
-const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-
-const MAP_THEMES = {
-  neon: {
-    name:'霓虹都市', icon:'🌃', desc:'夜之城赛道，霓虹摩天楼',
-    sky:0x1a1a3e, fog:0x1a1a3e, fogDensity:0.006,
-    ground:0x2a2a3a, road:0x3a3a4e, roadLine:0x00dcff,
-    curbA:0xff2255, curbB:0xffffff, accent:0x00dcff,
-    sun:0x8899ff, sunIntensity:0.8, ambient:0x6688cc, ambientIntensity:0.9,
-    buildingColors:[0x2a2a4a,0x3a2a4a,0x2a3a5a,0x4a2a3a],
-    neonColors:[0x00dcff,0xff3c8a,0xb066ff,0x39ff14,0xffaa00],
-    groundFriction:0.6,
-  },
-  desert: {
-    name:'沙漠夕阳', icon:'🏜️', desc:'戈壁红岩仙人掌夕阳',
-    sky:0xff8844, fog:0xffaa66, fogDensity:0.008,
-    ground:0xd4a574, road:0x8a6a4a, roadLine:0xffffff,
-    curbA:0xcc3333, curbB:0xf0e0c0, accent:0xff6622,
-    sun:0xffcc66, sunIntensity:1.4, ambient:0xff9955, ambientIntensity:0.6,
-    buildingColors:[0xb8865a,0xa06a40,0xc49a6a,0x8a5a3a],
-    neonColors:[0xff6622,0xffcc44,0xff4422],
-    groundFriction:0.35,
-  },
-  sky: {
-    name:'天空浮岛', icon:'☁️', desc:'云端浮岛瀑布彩虹高空',
-    sky:0x88ccff, fog:0xaaddff, fogDensity:0.006,
-    ground:0x66bb44, road:0xeeeeff, roadLine:0x6688ff,
-    curbA:0x66aaff, curbB:0xffffff, accent:0x66aaff,
-    sun:0xffffee, sunIntensity:1.2, ambient:0xaaccff, ambientIntensity:0.7,
-    buildingColors:[0xddccff,0xffeedd,0xccddee,0xeeddff],
-    neonColors:[0x66aaff,0xff88cc,0x88ffcc],
-    groundFriction:0.5,
-  },
+  trackWidth: 22,
+  trackSegments: 220,
+  totalLaps: 3,
+  physicsHz: 120,        // 物理更新频率
+  maxSpeed: 42,          // m/s ≈ 150 km/h
+  accel: 22,             // m/s²
+  brakeForce: 45,
+  reverseMax: 18,
+  drag: 0.004,           // 空气阻力系数 (v²项，决定极速)
+  rollResist: 1.0,       // 滚动阻力
+  grip: 5.5,             // 侧向抓地力
+  handbrakeGrip: 0.8,
+  steerMax: 0.72,        // 最大转向角 rad
+  steerSpeed: 7.0,        // 输入响应速度
+  steerReturn: 2.8,       // 回正速度（松开会正）
+  lowSpeedSteer: 1.0,    // 低速转向倍率
+  highSpeedSteer: 0.72,  // 高速转向倍率
+  speedLinesFOV: 1.6,    // 速度感 FOV 增量系数
+  aiCount: 2,
+  aiSkill: [0.92, 0.86], // AI 速度系数
 };
 
-// ===================== 全局状态 =====================
-let scene, camera, renderer, clock;
-let world; // cannon world
-let carBody, carMesh;
-let currentTheme = null, currentThemeKey = null;
-let trackPoints = [], trackCurve = null, trackLength = 0;
-let trackHeightSamples = []; // 预计算赛道高度，用于地面跟随防穿模
-let worldGroup = null;
-let obstacles = [], aiCars = [];
-let gameState = 'menu';
-let distance = 0, raceTime = 0, maxSpeedReached = 0;
-let cameraMode = 3, trackProgress = 0;
-let bestTimes = {};
-let input = { left:false, right:false, gas:true, brake:false };
-let audioCtx = null, musicNodes = null, musicOn = true;
-let engineSound = null;
-let particleSystems = [];
-let sceneryMeshes = []; // for LOD culling
-let wallBodies = []; // track physics walls
-
-// ===================== 工具 =====================
-function rand(a,b){return a+Math.random()*(b-a)}
-function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
-function makeCanvasTexture(w,h,draw){
-  const c=document.createElement('canvas');c.width=w;c.height=h;
-  const ctx=c.getContext('2d');draw(ctx,w,h);
-  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;
-}
-
-// ===================== 场景初始化 =====================
-function initScene(){
-  scene = new THREE.Scene();
-  clock = new THREE.Clock();
-  camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 1500);
-  try {
-    renderer = new THREE.WebGLRenderer({antialias:!IS_MOBILE, powerPreference:'high-performance'});
-  } catch(e){
-    console.error('WebGL 不可用:', e.message);
-    // 不覆盖 body，让菜单仍可显示
-    return;
-  }
-  renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(IS_MOBILE ? 1 : Math.min(devicePixelRatio, 1.5));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.3;
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  document.body.appendChild(renderer.domElement);
-  addEventListener('resize', onResize);
-}
-function onResize(){
-  camera.aspect = innerWidth/innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-}
-
-// ===================== Cannon 物理世界 =====================
-function initPhysics(){
-  world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
-  world.broadphase = new CANNON.SAPBroadphase(world);
-  world.allowSleep = true;
-  world.defaultContactMaterial.friction = 0.5;
-  world.defaultContactMaterial.restitution = 0.1;
-
-  // 极低安全网，防止意外坠落虚空（赛道地面由高度钳制处理）
-  const groundBody = new CANNON.Body({ mass:0, shape:new CANNON.Plane() });
-  groundBody.quaternion.setFromEuler(-Math.PI/2, 0, 0);
-  groundBody.position.y = -200;
-  world.addBody(groundBody);
-}
-
-function applyTheme(theme){
-  currentTheme = theme;
-  scene.background = new THREE.Color(theme.sky);
-  scene.fog = new THREE.FogExp2(theme.fog, theme.fogDensity);
-  scene.children.forEach(c=>{ if(c.isLight) scene.remove(c) });
-  scene.add(new THREE.AmbientLight(theme.ambient, theme.ambientIntensity));
-  const sun = new THREE.DirectionalLight(theme.sun, theme.sunIntensity);
-  sun.position.set(50,100,30);
-  sun.castShadow = true;
-  const shadowSize = IS_MOBILE ? 512 : 1024;
-  sun.shadow.mapSize.set(shadowSize, shadowSize);
-  sun.shadow.camera.left=-80;sun.shadow.camera.right=80;
-  sun.shadow.camera.top=80;sun.shadow.camera.bottom=-80;
-  sun.shadow.camera.far=250;
-  sun.shadow.bias = -0.0008;
-  scene.add(sun);
-  const rim = new THREE.DirectionalLight(theme.accent, 0.5);
-  rim.position.set(-30,50,-30); scene.add(rim);
-  scene.add(new THREE.HemisphereLight(theme.sky, theme.ground, 0.6));
-}
-
-// ===================== 赛道生成 (不变) =====================
-function generateTrack(themeKey){
-  trackPoints = [];
-  const segs = 14;
-  let x=0, z=0, angle=0;
-  for(let i=0;i<=segs;i++){
-    const yOff = themeKey==='sky' ? Math.sin(i*0.8)*8 + i*3 : (themeKey==='desert'? Math.sin(i*0.5)*2 : Math.sin(i*0.6)*3);
-    trackPoints.push(new THREE.Vector3(x, yOff, z));
-    if(i<segs){
-      angle += (Math.random()-0.5)*0.6;
-      const len = rand(40, 70);
-      x += Math.sin(angle)*len;
-      z += Math.cos(angle)*len;
-    }
-  }
-  trackCurve = new THREE.CatmullRomCurve3(trackPoints, false, 'catmullrom', 0.5);
-  trackLength = trackCurve.getLength();
-  // 预计算赛道高度采样（每 0.5m 一个点），用于物理地面跟随，防穿模飞天
-  trackHeightSamples = [];
-  const samples = Math.max(200, Math.floor(trackLength * 2));
-  for(let i=0;i<=samples;i++){
-    const t = i/samples;
-    const p = trackCurve.getPointAt(t);
-    trackHeightSamples.push({t, x:p.x, y:p.y, z:p.z});
-  }
-}
-
-// 根据世界坐标(x,z)查赛道最近高度
-function getTrackHeightAt(x, z){
-  if(!trackHeightSamples.length) return 0;
-  // 从当前进度附近搜索，减少计算
-  let bestY = 0, bestD = Infinity;
-  const startT = trackProgress;
-  const range = 0.08;
-  const start = Math.max(0, Math.floor((startT-range)*trackHeightSamples.length));
-  const end = Math.min(trackHeightSamples.length, Math.ceil((startT+range)*trackHeightSamples.length));
-  for(let i=start;i<end;i++){
-    const s = trackHeightSamples[i];
-    const dx = s.x-x, dz = s.z-z;
-    const d = dx*dx+dz*dz;
-    if(d < bestD){ bestD = d; bestY = s.y; }
-  }
-  return bestY;
-}
-
-// ===================== 赛道渲染 =====================
-function buildTrack(){
-  if(worldGroup) scene.remove(worldGroup);
-  // 清理旧赛道墙
-  wallBodies.forEach(b=>world.removeBody(b));
-  wallBodies = [];
-  worldGroup = new THREE.Group();
-  scene.add(worldGroup);
-
-  const theme = currentTheme;
-  const divisions = Math.floor(trackLength * 1.5);
-  const points = trackCurve.getSpacedPoints(divisions);
-  const tangents = [];
-  for(let i=0;i<=divisions;i++) tangents.push(trackCurve.getTangentAt(i/divisions));
-
-  // road
-  const roadGeo = new THREE.BufferGeometry();
-  const verts=[], uvs=[], hw=CFG.trackWidth;
-  for(let i=0;i<=divisions;i++){
-    const p=points[i], tan=tangents[i];
-    const n=new THREE.Vector3(-tan.z,0,tan.x).normalize();
-    const l=p.clone().add(n.clone().multiplyScalar(hw));
-    const r=p.clone().add(n.clone().multiplyScalar(-hw));
-    verts.push(l.x,l.y,l.z, r.x,r.y,r.z);
-    uvs.push(0, i*0.3, 1, i*0.3);
-  }
-  const idx=[];
-  for(let i=0;i<divisions;i++){const a=i*2,b=i*2+1,c=i*2+2,d=i*2+3;idx.push(a,b,c,b,d,c)}
-  roadGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts,3));
-  roadGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs,2));
-  roadGeo.setIndex(idx); roadGeo.computeVertexNormals();
-  const roadTex = makeCanvasTexture(256,256,(ctx,w,h)=>{
-    ctx.fillStyle='#'+theme.road.toString(16).padStart(6,'0');
-    ctx.fillRect(0,0,w,h);
-    ctx.strokeStyle='#'+theme.roadLine.toString(16).padStart(6,'0');
-    ctx.lineWidth=10; ctx.setLineDash([24,18]);
-    ctx.beginPath();ctx.moveTo(w/2,0);ctx.lineTo(w/2,h);ctx.stroke();
-    ctx.setLineDash([]); ctx.lineWidth=5;
-    ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(10,h);ctx.moveTo(w-10,0);ctx.lineTo(w-10,h);ctx.stroke();
-    for(let i=0;i<1500;i++){ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.1})`;ctx.fillRect(Math.random()*w,Math.random()*h,2,2)}
-  });
-  roadTex.wrapS=roadTex.wrapT=THREE.RepeatWrapping;
-  const roadMesh = new THREE.Mesh(roadGeo, new THREE.MeshStandardMaterial({map:roadTex, roughness:0.85, metalness:0.1}));
-  roadMesh.receiveShadow = true;
-  worldGroup.add(roadMesh);
-
-  // curbs
-  for(let side=-1; side<=1; side+=2){
-    const cg=new THREE.BufferGeometry(); const cv=[], ci=[];
-    for(let i=0;i<=divisions;i++){
-      const p=points[i], tan=tangents[i];
-      const n=new THREE.Vector3(-tan.z,0,tan.x).normalize();
-      const inn=p.clone().add(n.clone().multiplyScalar(hw*side));
-      const out=p.clone().add(n.clone().multiplyScalar((hw+1.2)*side));
-      inn.y+=0.15; out.y+=0.15;
-      cv.push(inn.x,inn.y,inn.z, out.x,out.y,out.z);
-    }
-    for(let i=0;i<divisions;i++){const a=i*2,b=i*2+1,c=i*2+2,d=i*2+3;ci.push(a,b,c,b,d,c)}
-    cg.setAttribute('position', new THREE.Float32BufferAttribute(cv,3));
-    cg.setIndex(ci); cg.computeVertexNormals();
-    const ct = makeCanvasTexture(64,256,(ctx,w,h)=>{
-      for(let r=0;r<8;r++){ctx.fillStyle=r%2===0?'#'+theme.curbA.toString(16).padStart(6,'0'):'#'+theme.curbB.toString(16).padStart(6,'0');ctx.fillRect(0,r*h/8,w,h/8)}
+/* ============================ 2. INPUT ============================ */
+const Input = {
+  keys: {}, steer: 0, gas: 0, brake: 0, handbrake: false,
+  swipeX: 0, swipeActive: false, swipeStartX: 0,
+  init() {
+    window.addEventListener('keydown', e => {
+      this.keys[e.code] = true;
+      if (e.code === 'Escape' || e.code === 'KeyP') Game.togglePause();
+      if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
     });
-    ct.wrapT=THREE.RepeatWrapping;
-    worldGroup.add(new THREE.Mesh(cg, new THREE.MeshStandardMaterial({map:ct, roughness:0.7})));
-  }
-
-  // ground
-  const groundTex = makeCanvasTexture(512,512,(ctx,w,h)=>{
-    ctx.fillStyle='#'+theme.ground.toString(16).padStart(6,'0');ctx.fillRect(0,0,w,h);
-    for(let i=0;i<3000;i++){ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.08})`;ctx.fillRect(Math.random()*w,Math.random()*h,3,3)}
-  });
-  groundTex.wrapS=groundTex.wrapT=THREE.RepeatWrapping; groundTex.repeat.set(20,20);
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000,2000), new THREE.MeshStandardMaterial({map:groundTex, roughness:1}));
-  ground.rotation.x=-Math.PI/2; ground.position.y=-0.05; ground.receiveShadow=true;
-  worldGroup.add(ground);
-
-  // physics track walls
-  buildTrackWalls(points, tangents);
-  // tire barriers (visual only, walls handle collision)
-  buildTireBarriers(points, tangents);
-}
-
-function buildTrackWalls(points, tangents){
-  const hw = CFG.trackWidth + 1.2;
-  const step = 2; // 更密集的墙段，防高速穿出
-  for(let side=-1; side<=1; side+=2){
-    for(let i=0;i<points.length;i+=step){
-      const p = points[i];
-      const tan = tangents[i];
-      const n = new THREE.Vector3(-tan.z,0,tan.x).normalize();
-      const wx = p.x + n.x*hw*side;
-      const wz = p.z + n.z*hw*side;
-      // 墙跟随赛道高度，防止车从低洼处穿出
-      const wall = new CANNON.Body({ mass:0, shape:new CANNON.Box(new CANNON.Vec3(1.5, 4, step*1.5)) });
-      wall.position.set(wx, p.y + 2, wz);
-      const angle = Math.atan2(tan.x, tan.z);
-      wall.quaternion.setFromEuler(0, angle, 0);
-      world.addBody(wall);
-      wallBodies.push(wall);
+    window.addEventListener('keyup', e => { this.keys[e.code] = false; });
+    // 触控按钮（油门/刹车）
+    const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    if (isTouch) document.getElementById('touch').classList.add('active');
+    document.querySelectorAll('.t-btn').forEach(b => {
+      const k = b.dataset.key;
+      const press = e => { e.preventDefault(); this.setTouch(k, true); };
+      const rel = e => { e.preventDefault(); this.setTouch(k, false); };
+      b.addEventListener('pointerdown', press);
+      b.addEventListener('pointerup', rel);
+      b.addEventListener('pointerleave', rel);
+      b.addEventListener('pointercancel', rel);
+    });
+    // 触屏左右滑动控制转向
+    const canvas = document.getElementById('game');
+    canvas.addEventListener('touchstart', e => {
+      if (e.touches.length > 0) {
+        this.swipeActive = true;
+        this.swipeStartX = e.touches[0].clientX;
+        this.swipeX = 0;
+      }
+    }, { passive: true });
+    canvas.addEventListener('touchmove', e => {
+      if (this.swipeActive && e.touches.length > 0) {
+        const dx = e.touches[0].clientX - this.swipeStartX;
+        // 滑动 80px 对应满舵，限制范围
+        this.swipeX = Math.max(-1, Math.min(1, dx / 80));
+      }
+    }, { passive: true });
+    const endSwipe = () => { this.swipeActive = false; this.swipeX = 0; };
+    canvas.addEventListener('touchend', endSwipe);
+    canvas.addEventListener('touchcancel', endSwipe);
+  },
+  setTouch(k, v) {
+    if (k === 'left') this.keys['ArrowLeft'] = v;
+    if (k === 'right') this.keys['ArrowRight'] = v;
+    if (k === 'gas') this.keys['ArrowUp'] = v;
+    if (k === 'brake') this.keys['ArrowDown'] = v;
+  },
+  update(dt) {
+    // 油门/刹车
+    this.gas = (this.keys['KeyW']||this.keys['ArrowUp']) ? 1 : 0;
+    this.brake = (this.keys['KeyS']||this.keys['ArrowDown']) ? 1 : 0;
+    this.handbrake = !!this.keys['Space'];
+    // 转向输入：触屏滑动优先，其次键盘/按钮（取反：左=正，因相机视角方向）
+    let target = 0;
+    if (this.swipeActive) {
+      target = -this.swipeX;
+    } else {
+      if (this.keys['KeyA']||this.keys['ArrowLeft']) target += 1;
+      if (this.keys['KeyD']||this.keys['ArrowRight']) target -= 1;
     }
+    // 平滑转向
+    if (target !== 0) {
+      this.steer += (target - this.steer) * Math.min(1, CFG.steerSpeed * dt);
+    } else {
+      const r = CFG.steerReturn * dt;
+      if (Math.abs(this.steer) <= r) this.steer = 0;
+      else this.steer -= Math.sign(this.steer) * r;
+    }
+    this.steer = Math.max(-1, Math.min(1, this.steer));
   }
-  // 起点/终点封口墙，防止掉头后从两端飞出
-  const endP = points[points.length-1];
-  const startP = points[0];
-  [startP, endP].forEach((p, idx)=>{
-    const tan = tangents[idx===0?0:points.length-1];
-    const angle = Math.atan2(tan.x, tan.z);
-    const wall = new CANNON.Body({ mass:0, shape:new CANNON.Box(new CANNON.Vec3(hw+2, 4, 1)) });
-    wall.position.set(p.x, p.y+2, p.z);
-    wall.quaternion.setFromEuler(0, angle+Math.PI/2, 0);
-    world.addBody(wall);
-    wallBodies.push(wall);
-  });
-}
+};
 
-function buildTireBarriers(points, tangents){
-  const theme = currentTheme;
-  const tireGeo = new THREE.CylinderGeometry(0.5,0.5,0.4,8);
-  const tireMat = new THREE.MeshStandardMaterial({color:0x1a1a1a, roughness:0.9});
-  const stripeMat = new THREE.MeshStandardMaterial({color:theme.curbA, roughness:0.7, emissive:theme.curbA, emissiveIntensity:0.2});
-  const step = 3;
-  for(let side=-1; side<=1; side+=2){
-    for(let i=0;i<points.length;i+=step){
-      const p=points[i], tan=tangents[i];
-      const n=new THREE.Vector3(-tan.z,0,tan.x).normalize();
-      const base=p.clone().add(n.clone().multiplyScalar((CFG.trackWidth+2.2)*side));
-      for(let s=0;s<3;s++){
-        const tire=new THREE.Mesh(tireGeo, s%2===0?tireMat:stripeMat);
-        tire.position.set(base.x, 0.2+s*0.4, base.z);
-        tire.rotation.z=Math.PI/2;
-        worldGroup.add(tire);
+/* ============================ 3. AUDIO ============================ */
+const Audio = {
+  ctx: null, engineOsc: null, engineGain: null, masterGain: null,
+  init() {
+    try {
+      this.ctx = new (window.AudioContext||window.webkitAudioContext)();
+      this.masterGain = this.ctx.createGain();
+      this.masterGain.gain.value = 0.5;
+      this.masterGain.connect(this.ctx.destination);
+      // 引擎声：锯齿波 + 低通
+      this.engineOsc = this.ctx.createOscillator();
+      this.engineOsc.type = 'sawtooth';
+      this.engineOsc.frequency.value = 60;
+      const lp = this.ctx.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 900;
+      this.engineGain = this.ctx.createGain();
+      this.engineGain.gain.value = 0;
+      this.engineOsc.connect(lp); lp.connect(this.engineGain);
+      this.engineGain.connect(this.masterGain);
+      this.engineOsc.start();
+    } catch(e) { console.warn('Audio init failed', e); }
+  },
+  resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+  setEngine(rpm01, throttle) {
+    if (!this.ctx) return;
+    // 频率随转速 60Hz→420Hz
+    const freq = 60 + rpm01 * 360;
+    this.engineOsc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.08);
+    const vol = 0.04 + rpm01 * 0.12 + throttle * 0.06;
+    this.engineGain.gain.setTargetAtTime(Math.min(0.25, vol), this.ctx.currentTime, 0.08);
+  },
+  blip(freq, dur, type='square', vol=0.3) {
+    if (!this.ctx) return;
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, this.ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
+    o.connect(g); g.connect(this.masterGain);
+    o.start(); o.stop(this.ctx.currentTime + dur);
+  },
+  crash() { this.blip(90, 0.25, 'square', 0.4); },
+  brakeScreech(on) {
+    // 简易刹车声：噪声
+  }
+};
+
+/* ============================ 4. TRACK ============================ */
+/* 程序化生成封闭环形赛道：控制点 -> CatmullRom 样条 -> 路面/护栏/检查点 */
+const Track = {
+  curve: null, points: [], width: CFG.trackWidth,
+  checkpoints: [], startPos: null, startDir: null,
+  generate() {
+    // 简化为体育场形：两条长直道 + 两个大半径缓弯，转弯少且平滑
+    const straight = 180;   // 直道长度的一半
+    const curveR = 75;      // 弯道半径
+    const ctrl = [
+      new THREE.Vector3(-straight, 0, -curveR),  // 底部直道起点
+      new THREE.Vector3( straight, 0, -curveR),  // 底部直道终点
+      new THREE.Vector3( straight + curveR, 0, 0),  // 右弯顶点
+      new THREE.Vector3( straight, 0,  curveR),  // 顶部直道终点
+      new THREE.Vector3(-straight, 0,  curveR),  // 顶部直道起点
+      new THREE.Vector3(-straight - curveR, 0, 0),  // 左弯顶点
+    ];
+    this.curve = new THREE.CatmullRomCurve3(ctrl, true, 'catmullrom', 0.5);
+    // 采样
+    this.points = this.curve.getPoints(CFG.trackSegments);
+    // 检查点：每 20 段一个
+    this.checkpoints = [];
+    for (let i = 0; i < CFG.trackSegments; i += 20) this.checkpoints.push(i);
+    this.startPos = this.points[0].clone();
+    const t0 = this.curve.getTangent(0);
+    this.startDir = Math.atan2(t0.x, t0.z);
+    return this;
+  },
+  // 获取赛道上某点的切线方向（弧度）
+  headingAt(t) {
+    const tan = this.curve.getTangent(t % 1);
+    return Math.atan2(tan.x, tan.z);
+  },
+  // 构建 Three.js 网格
+  build(scene) {
+    const pts = this.points;
+    const W = this.width;
+    // 路面顶点
+    const positions = [], uvs = [], indices = [];
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      const next = pts[(i+1) % pts.length];
+      const dx = next.x - p.x, dz = next.z - p.z;
+      const len = Math.hypot(dx, dz) || 1;
+      const nx = -dz / len, nz = dx / len; // 右法线
+      positions.push(p.x + nx*W/2, 0.02, p.z + nz*W/2);
+      positions.push(p.x - nx*W/2, 0.02, p.z - nz*W/2);
+      uvs.push(i*0.1, 0, i*0.1, 1);
+    }
+    for (let i = 0; i < pts.length; i++) {
+      const a = i*2, b = i*2+1, c = ((i+1)%pts.length)*2, d = ((i+1)%pts.length)*2+1;
+      indices.push(a,c,b, b,c,d);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    g.setIndex(indices);
+    g.computeVertexNormals();
+    // 路面纹理（Canvas 生成：沥青 + 中线 + 边线）
+    const tex = this.makeRoadTexture();
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    const m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9, metalness: 0.0 });
+    const road = new THREE.Mesh(g, m);
+    road.receiveShadow = true;
+    scene.add(road);
+
+    // 护栏：两侧连续矮墙
+    const barMat = new THREE.MeshStandardMaterial({ color: 0xff3344, roughness: 0.6 });
+    const barGeo = new THREE.BoxGeometry(0.6, 1.2, 2.2);
+    for (let side = -1; side <= 1; side += 2) {
+      for (let i = 0; i < pts.length; i += 3) {
+        const p = pts[i];
+        const next = pts[(i+1) % pts.length];
+        const dx = next.x - p.x, dz = next.z - p.z;
+        const len = Math.hypot(dx, dz) || 1;
+        const nx = -dz/len, nz = dx/len;
+        const b = new THREE.Mesh(barGeo, barMat);
+        b.position.set(p.x + nx*W/2*side, 0.6, p.z + nz*W/2*side);
+        b.rotation.y = Math.atan2(dx, dz);
+        b.castShadow = true;
+        scene.add(b);
       }
     }
-  }
-}
 
-// ===================== 环境 (InstancedMesh 优化) =====================
-function buildScenery(){
-  const theme = currentTheme;
-  const themeKey = currentThemeKey;
-  const pts = trackCurve.getSpacedPoints(50);
-  const tans = [];
-  for(let i=0;i<=50;i++) tans.push(trackCurve.getTangentAt(i/50));
+    // 赛道障碍物：路锥（每隔一段放一个，左右交替，需躲避）
+    const coneGeo = new THREE.ConeGeometry(0.4, 1.0, 8);
+    const coneMat = new THREE.MeshStandardMaterial({ color: 0xff6600, roughness: 0.7 });
+    this.obstacles = [];
+    for (let i = 8; i < pts.length - 2; i += 7) {
+      const p = pts[i];
+      const next = pts[(i+1) % pts.length];
+      const dx = next.x - p.x, dz = next.z - p.z;
+      const len = Math.hypot(dx, dz) || 1;
+      const nx = -dz/len, nz = dx/len; // 法向
+      // 左右交替放置，距中心 4~7 米
+      const side = (i % 2 === 0) ? 1 : -1;
+      const off = (3 + (i % 3) * 1.5) * side;
+      const cone = new THREE.Mesh(coneGeo, coneMat);
+      cone.position.set(p.x + nx*off, 0.5, p.z + nz*off);
+      cone.castShadow = true;
+      scene.add(cone);
+      this.obstacles.push({ pos: cone.position, radius: 0.6 });
+    }
 
-  // collect instance positions by type
-  const instances = {building:[], cactus:[], rock:[], cloud:[], tree:[]};
-  for(let i=0;i<pts.length;i++){
-    const p=pts[i], tan=tans[i];
-    const n=new THREE.Vector3(-tan.z,0,tan.x).normalize();
-    for(let side=-1; side<=1; side+=2){
-      for(let d=1; d<=3; d++){
-        if(Math.random()>0.55) continue;
-        const dist = 14 + d*8 + Math.random()*8;
-        const pos = p.clone().add(n.clone().multiplyScalar(dist*side));
-        pos.x += rand(-4,4); pos.z += rand(-4,4);
-        if(themeKey==='neon') instances.building.push({pos, h:rand(15,50), w:rand(6,14), d:rand(6,14)});
-        else if(themeKey==='desert'){ if(Math.random()>0.5) instances.cactus.push({pos, h:rand(3,6)}); else instances.rock.push({pos, r:rand(1.5,4)}); }
-        else { if(Math.random()>0.6) instances.cloud.push({pos}); else instances.tree.push({pos}); }
+    // 草地地面（程序化纹理）
+    const groundTex = this.makeGrassTexture();
+    groundTex.wrapS = groundTex.wrapT = THREE.RepeatWrapping;
+    groundTex.repeat.set(60, 60);
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(1200, 1200),
+      new THREE.MeshStandardMaterial({ map: groundTex, roughness: 1 })
+    );
+    ground.rotation.x = -Math.PI/2;
+    ground.position.y = -0.05;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // 环境散布：树/建筑剪影
+    this.scatterScenery(scene, pts);
+  },
+  makeRoadTexture() {
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 256;
+    const ctx = c.getContext('2d');
+    // 沥青
+    ctx.fillStyle = '#3a3a42';
+    ctx.fillRect(0, 0, 256, 256);
+    // 噪点
+    for (let i = 0; i < 4000; i++) {
+      ctx.fillStyle = `rgba(${Math.random()*40+40},${Math.random()*40+40},${Math.random()*40+45},0.4)`;
+      ctx.fillRect(Math.random()*256, Math.random()*256, 2, 2);
+    }
+    // 边线
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 6, 256, 4);
+    ctx.fillRect(0, 246, 256, 4);
+    // 中线虚线
+    ctx.fillStyle = '#ffdd33';
+    for (let x = 0; x < 256; x += 32) ctx.fillRect(x, 124, 18, 8);
+    const t = new THREE.CanvasTexture(c);
+    t.repeat.set(1, 1);
+    return t;
+  },
+  makeGrassTexture() {
+    const c = document.createElement('canvas');
+    c.width = 128; c.height = 128;
+    const ctx = c.getContext('2d');
+    // 底色
+    ctx.fillStyle = '#3a6b3a'; ctx.fillRect(0, 0, 128, 128);
+    // 噪点
+    for (let i = 0; i < 3000; i++) {
+      const g = 80 + Math.random() * 80;
+      ctx.fillStyle = `rgba(${30+Math.random()*30},${g},${30+Math.random()*30},0.6)`;
+      ctx.fillRect(Math.random()*128, Math.random()*128, 1.5, 1.5);
+    }
+    // 少量深色斑块
+    for (let i = 0; i < 40; i++) {
+      ctx.fillStyle = 'rgba(20,50,20,0.3)';
+      ctx.beginPath();
+      ctx.arc(Math.random()*128, Math.random()*128, 2+Math.random()*4, 0, Math.PI*2);
+      ctx.fill();
+    }
+    return new THREE.CanvasTexture(c);
+  },
+  scatterScenery(scene, pts) {
+    this.trees = []; // 存储树木位置用于碰撞
+
+    // === 树：松树（三层圆锥）+ 圆冠树（球体），两种类型随机 ===
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.9 });
+    const leafDark = new THREE.MeshStandardMaterial({ color: 0x1f5f1f, roughness: 0.8 });
+    const leafMid  = new THREE.MeshStandardMaterial({ color: 0x2d8a2d, roughness: 0.8 });
+    const leafLight= new THREE.MeshStandardMaterial({ color: 0x3da83d, roughness: 0.8 });
+    const roundLeaf1 = new THREE.MeshStandardMaterial({ color: 0x2a7a2a, roughness: 0.85 });
+    const roundLeaf2 = new THREE.MeshStandardMaterial({ color: 0x3a9a3a, roughness: 0.85 });
+
+    const tg = new THREE.CylinderGeometry(0.25, 0.45, 3, 8);
+    const lg1 = new THREE.ConeGeometry(2.6, 3.5, 8);
+    const lg2 = new THREE.ConeGeometry(2.0, 3.0, 8);
+    const lg3 = new THREE.ConeGeometry(1.4, 2.5, 8);
+    const roundGeo = new THREE.IcosahedronGeometry(2.2, 1);
+
+    const count = 110;
+    const trunks = new THREE.InstancedMesh(tg, trunkMat, count);
+    const l1 = new THREE.InstancedMesh(lg1, leafDark, count);
+    const l2 = new THREE.InstancedMesh(lg2, leafMid, count);
+    const l3 = new THREE.InstancedMesh(lg3, leafLight, count);
+    const round1 = new THREE.InstancedMesh(roundGeo, roundLeaf1, count);
+    const round2 = new THREE.InstancedMesh(roundGeo, roundLeaf2, count);
+    const m = new THREE.Matrix4();
+
+    for (let i = 0; i < count; i++) {
+      const t = Math.random();
+      const p = this.curve.getPoint(t);
+      const tan = this.curve.getTangent(t);
+      const len = Math.hypot(tan.x, tan.z) || 1;
+      const nx = -tan.z/len, nz = tan.x/len;
+      const side = Math.random() < 0.5 ? 1 : -1;
+      // 树离赛道近一些（15~45m），车辆靠边时能真正撞到树
+      const dist = this.width/2 + 4 + Math.random()*30;
+      const x = p.x + nx*dist*side + (Math.random()-0.5)*6;
+      const z = p.z + nz*dist*side + (Math.random()-0.5)*6;
+      const s = 0.7 + Math.random()*1.0;
+      const isPine = Math.random() < 0.6;
+
+      if (isPine) {
+        // 松树：树干 + 三层圆锥
+        m.makeScale(s, s, s); m.setPosition(x, 1.5*s, z);
+        trunks.setMatrixAt(i, m);
+        m.makeScale(s, s, s); m.setPosition(x, 3.0*s, z); l1.setMatrixAt(i, m);
+        m.makeScale(s, s, s); m.setPosition(x, 4.5*s, z); l2.setMatrixAt(i, m);
+        m.makeScale(s, s, s); m.setPosition(x, 5.8*s, z); l3.setMatrixAt(i, m);
+        // 碰撞半径 = 树冠底部半径(2.6*s) * 0.85，匹配视觉
+        this.trees.push({ pos: new THREE.Vector3(x, 0, z), radius: 2.2*s });
+        // 圆冠树的实例隐藏（缩到0）
+        m.makeScale(0, 0, 0); round1.setMatrixAt(i, m); round2.setMatrixAt(i, m);
+      } else {
+        // 圆冠树：树干 + 两层球
+        m.makeScale(s*0.8, s*0.8, s*0.8); m.setPosition(x, 1.5*s, z);
+        trunks.setMatrixAt(i, m);
+        m.makeScale(s, s, s); m.setPosition(x, 4.0*s, z); round1.setMatrixAt(i, m);
+        m.makeScale(s*0.7, s*0.7, s*0.7); m.setPosition(x, 5.4*s, z); round2.setMatrixAt(i, m);
+        // 松树层隐藏
+        m.makeScale(0, 0, 0); l1.setMatrixAt(i, m); l2.setMatrixAt(i, m); l3.setMatrixAt(i, m);
+        this.trees.push({ pos: new THREE.Vector3(x, 0, z), radius: 2.0*s });
       }
     }
-  }
-
-  // build instanced meshes
-  if(instances.building.length){
-    const mat = new THREE.MeshStandardMaterial({color:0x333344, roughness:0.6, metalness:0.3});
-    const inst = new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1), mat, instances.building.length);
-    const dummy = new THREE.Object3D();
-    instances.building.forEach((b,i)=>{
-      dummy.position.set(b.pos.x, b.h/2, b.pos.z);
-      dummy.scale.set(b.w, b.h, b.d);
-      dummy.updateMatrix();
-      inst.setMatrixAt(i, dummy.matrix);
-      // window emissive via color tint
-      inst.setColorAt(i, new THREE.Color(pick(theme.buildingColors)));
+    [trunks, l1, l2, l3, round1, round2].forEach(o => {
+      o.instanceMatrix.needsUpdate = true; o.castShadow = true; scene.add(o);
     });
-    inst.castShadow = true; inst.receiveShadow = true;
-    worldGroup.add(inst);
-    sceneryMeshes.push(inst);
 
-    // neon strips on top of some buildings
-    const stripMat = new THREE.MeshStandardMaterial({color:theme.accent, emissive:theme.accent, emissiveIntensity:1.5});
-    const stripGeo = new THREE.BoxGeometry(1,0.4,1);
-    const stripInst = new THREE.InstancedMesh(stripGeo, stripMat, instances.building.length);
-    let si=0;
-    instances.building.forEach((b)=>{
-      if(Math.random()>0.4) return;
-      dummy.position.set(b.pos.x, b.h+0.2, b.pos.z);
-      dummy.scale.set(b.w*1.05, 1, b.d*1.05);
-      dummy.updateMatrix();
-      stripInst.setMatrixAt(si++, dummy.matrix);
-      stripInst.setColorAt(si-1, new THREE.Color(pick(theme.neonColors)));
-    });
-    stripInst.count = si;
-    worldGroup.add(stripInst);
-  }
+    // === 灌木（贴近赛道两侧的矮树丛）===
+    const bushMat1 = new THREE.MeshStandardMaterial({ color: 0x2d6b2d, roughness: 0.9 });
+    const bushMat2 = new THREE.MeshStandardMaterial({ color: 0x3a7a3a, roughness: 0.9 });
+    const bushGeo = new THREE.IcosahedronGeometry(0.8, 0);
+    const bushCount = 160;
+    const bushes1 = new THREE.InstancedMesh(bushGeo, bushMat1, bushCount);
+    const bushes2 = new THREE.InstancedMesh(bushGeo, bushMat2, bushCount);
+    for (let i = 0; i < bushCount; i++) {
+      const t = Math.random();
+      const p = this.curve.getPoint(t);
+      const tan = this.curve.getTangent(t);
+      const len = Math.hypot(tan.x, tan.z) || 1;
+      const nx = -tan.z/len, nz = tan.x/len;
+      const side = Math.random() < 0.5 ? 1 : -1;
+      const dist = this.width/2 + 2 + Math.random()*6;
+      const x = p.x + nx*dist*side + (Math.random()-0.5)*3;
+      const z = p.z + nz*dist*side + (Math.random()-0.5)*3;
+      const s = 0.5 + Math.random()*0.8;
+      const sc = (i % 2 === 0) ? bushes1 : bushes2;
+      m.makeScale(s, s*0.7, s); m.setPosition(x, s*0.4, z);
+      sc.setMatrixAt(i, m);
+    }
+    [bushes1, bushes2].forEach(o => { o.instanceMatrix.needsUpdate = true; o.castShadow = true; scene.add(o); });
 
-  if(instances.cactus.length){
-    const trunkMat = new THREE.MeshStandardMaterial({color:0x3a7a3a, roughness:0.8});
-    const trunkInst = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.3,0.4,1,6), trunkMat, instances.cactus.length);
-    const dummy = new THREE.Object3D();
-    instances.cactus.forEach((c,i)=>{
-      dummy.position.set(c.pos.x, c.h/2, c.pos.z);
-      dummy.scale.set(1, c.h, 1);
-      dummy.updateMatrix();
-      trunkInst.setMatrixAt(i, dummy.matrix);
-    });
-    trunkInst.castShadow = true;
-    worldGroup.add(trunkInst);
-    sceneryMeshes.push(trunkInst);
-  }
+    // === 岩石（点缀）===
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x7a7a7a, roughness: 0.95 });
+    const rockGeo = new THREE.DodecahedronGeometry(0.8, 0);
+    const rockCount = 40;
+    const rocks = new THREE.InstancedMesh(rockGeo, rockMat, rockCount);
+    for (let i = 0; i < rockCount; i++) {
+      const t = Math.random();
+      const p = this.curve.getPoint(t);
+      const tan = this.curve.getTangent(t);
+      const len = Math.hypot(tan.x, tan.z) || 1;
+      const nx = -tan.z/len, nz = tan.x/len;
+      const side = Math.random() < 0.5 ? 1 : -1;
+      const dist = this.width/2 + 10 + Math.random()*40;
+      const x = p.x + nx*dist*side + (Math.random()-0.5)*10;
+      const z = p.z + nz*dist*side + (Math.random()-0.5)*10;
+      const s = 0.6 + Math.random()*1.5;
+      m.makeScale(s, s*0.7, s);
+      m.setPosition(x, s*0.3, z);
+      rocks.setMatrixAt(i, m);
+    }
+    rocks.instanceMatrix.needsUpdate = true; rocks.castShadow = true; scene.add(rocks);
 
-  if(instances.rock.length){
-    const rockMat = new THREE.MeshStandardMaterial({color:0x8a5a3a, roughness:1, flatShading:true});
-    const rockInst = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0), rockMat, instances.rock.length);
-    const dummy = new THREE.Object3D();
-    instances.rock.forEach((r,i)=>{
-      dummy.position.set(r.pos.x, r.r*0.5, r.pos.z);
-      dummy.scale.setScalar(r.r);
-      dummy.rotation.set(rand(0,3),rand(0,3),rand(0,3));
-      dummy.updateMatrix();
-      rockInst.setMatrixAt(i, dummy.matrix);
-    });
-    rockInst.castShadow = true;
-    worldGroup.add(rockInst);
-    sceneryMeshes.push(rockInst);
-  }
-
-  if(instances.cloud.length){
-    const cloudMat = new THREE.MeshStandardMaterial({color:0xffffff, roughness:1, transparent:true, opacity:0.85});
-    const cloudInst = new THREE.InstancedMesh(new THREE.SphereGeometry(1,8,6), cloudMat, instances.cloud.length*4);
-    const dummy = new THREE.Object3D();
-    let ci=0;
-    instances.cloud.forEach((c)=>{
-      for(let k=0;k<4;k++){
-        const s=rand(2,5);
-        dummy.position.set(c.pos.x+rand(-4,4), rand(15,30)+rand(-1,1), c.pos.z+rand(-4,4));
-        dummy.scale.setScalar(s);
-        dummy.updateMatrix();
-        cloudInst.setMatrixAt(ci++, dummy.matrix);
+    // === 围栏（赛道两侧，护栏外侧的低矮木栅栏，增加路景层次）===
+    const fenceMat = new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 0.8 });
+    const fencePostGeo = new THREE.BoxGeometry(0.15, 1.0, 0.15);
+    const fenceRailGeo = new THREE.BoxGeometry(2.5, 0.1, 0.08);
+    for (let side = -1; side <= 1; side += 2) {
+      for (let i = 0; i < pts.length; i += 6) {
+        const p = pts[i];
+        const next = pts[(i+1) % pts.length];
+        const dx = next.x - p.x, dz = next.z - p.z;
+        const len = Math.hypot(dx, dz) || 1;
+        const nx = -dz/len, nz = dx/len;
+        const fx = p.x + nx * (this.width/2 + 4) * side;
+        const fz = p.z + nz * (this.width/2 + 4) * side;
+        // 立柱
+        const post = new THREE.Mesh(fencePostGeo, fenceMat);
+        post.position.set(fx, 0.5, fz);
+        post.rotation.y = Math.atan2(dx, dz);
+        scene.add(post);
+        // 横杆
+        const rail = new THREE.Mesh(fenceRailGeo, fenceMat);
+        rail.position.set(fx, 0.7, fz);
+        rail.rotation.y = Math.atan2(dx, dz);
+        scene.add(rail);
       }
-    });
-    cloudInst.count = ci;
-    worldGroup.add(cloudInst);
-    sceneryMeshes.push(cloudInst);
-  }
-
-  if(instances.tree.length){
-    const trunkMat = new THREE.MeshStandardMaterial({color:0x6a4a2a, roughness:0.9});
-    const leafMat = new THREE.MeshStandardMaterial({color:0x4a9a4a, roughness:0.8, flatShading:true});
-    const trunkInst = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.2,0.3,3,6), trunkMat, instances.tree.length);
-    const leafInst = new THREE.InstancedMesh(new THREE.SphereGeometry(2,8,6), leafMat, instances.tree.length);
-    const dummy = new THREE.Object3D();
-    instances.tree.forEach((t,i)=>{
-      dummy.position.set(t.pos.x, 1.5, t.pos.z); dummy.scale.set(1,1,1); dummy.updateMatrix();
-      trunkInst.setMatrixAt(i, dummy.matrix);
-      dummy.position.set(t.pos.x, 4, t.pos.z); dummy.updateMatrix();
-      leafInst.setMatrixAt(i, dummy.matrix);
-    });
-    trunkInst.castShadow = true; leafInst.castShadow = true;
-    worldGroup.add(trunkInst); worldGroup.add(leafInst);
-    sceneryMeshes.push(trunkInst, leafInst);
-  }
-
-  // theme big features
-  if(themeKey==='neon') addCitySkyline();
-  else if(themeKey==='desert') addMesas();
-  else addFloatingIslands();
-}
-
-function addCitySkyline(){
-  const mat = new THREE.MeshStandardMaterial({color:0x2a2a4a, roughness:0.5, metalness:0.4, emissive:0x111122, emissiveIntensity:0.3});
-  const inst = new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1), mat, 40);
-  const dummy = new THREE.Object3D();
-  for(let i=0;i<40;i++){
-    const angle=(i/40)*Math.PI*2, r=rand(180,280);
-    const h=rand(40,100), w=rand(12,25);
-    dummy.position.set(Math.cos(angle)*r, h/2, Math.sin(angle)*r);
-    dummy.scale.set(w,h,w); dummy.updateMatrix();
-    inst.setMatrixAt(i, dummy.matrix);
-  }
-  worldGroup.add(inst);
-  sceneryMeshes.push(inst);
-}
-function addMesas(){
-  const mat = new THREE.MeshStandardMaterial({color:0xb8743a, roughness:1, flatShading:true});
-  const capMat = new THREE.MeshStandardMaterial({color:0xd49a5a, roughness:1});
-  const inst = new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1), mat, 15);
-  const capInst = new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1), capMat, 15);
-  const dummy = new THREE.Object3D();
-  for(let i=0;i<15;i++){
-    const angle=(i/15)*Math.PI*2, r=rand(150,250);
-    const h=rand(20,50), w=rand(30,60);
-    dummy.position.set(Math.cos(angle)*r, h/2, Math.sin(angle)*r);
-    dummy.scale.set(w,h,w); dummy.updateMatrix();
-    inst.setMatrixAt(i, dummy.matrix);
-    dummy.position.set(Math.cos(angle)*r, h+1, Math.sin(angle)*r);
-    dummy.scale.set(w*1.1,2,w*1.1); dummy.updateMatrix();
-    capInst.setMatrixAt(i, dummy.matrix);
-  }
-  worldGroup.add(inst); worldGroup.add(capInst);
-  sceneryMeshes.push(inst, capInst);
-}
-function addFloatingIslands(){
-  for(let i=0;i<12;i++){
-    const angle=(i/12)*Math.PI*2, r=rand(120,200);
-    const g=new THREE.Group();
-    const size=rand(15,30);
-    const top=new THREE.Mesh(new THREE.CylinderGeometry(size,size*0.8,4,10), new THREE.MeshStandardMaterial({color:0x66bb44, roughness:1}));
-    g.add(top);
-    const bot=new THREE.Mesh(new THREE.ConeGeometry(size*0.8,size*1.5,10), new THREE.MeshStandardMaterial({color:0x8a6a4a, roughness:1, flatShading:true}));
-    bot.position.y=-size*0.9; bot.rotation.x=Math.PI; g.add(bot);
-    const t=new THREE.Mesh(new THREE.SphereGeometry(4,8,6), new THREE.MeshStandardMaterial({color:0x4a9a4a, flatShading:true}));
-    t.position.y=5; g.add(t);
-    g.position.set(Math.cos(angle)*r, rand(20,50), Math.sin(angle)*r);
-    worldGroup.add(g);
-  }
-}
-
-// ===================== 车辆 =====================
-function buildCarMesh(){
-  const g = new THREE.Group();
-  const theme = currentTheme;
-  const accent = theme.accent;
-  const bodyMat = new THREE.MeshStandardMaterial({color:0x1a1a2a, roughness:0.25, metalness:0.8});
-  const body = new THREE.Mesh(new THREE.BoxGeometry(2.2,0.5,4.6), bodyMat);
-  body.position.y=0.55; body.castShadow=true; g.add(body);
-  const nose = new THREE.Mesh(new THREE.BoxGeometry(1.8,0.3,1.2), bodyMat);
-  nose.position.set(0,0.42,2.6); nose.castShadow=true; g.add(nose);
-  const lip = new THREE.Mesh(new THREE.BoxGeometry(2.0,0.12,0.6), new THREE.MeshStandardMaterial({color:accent, emissive:accent, emissiveIntensity:0.8}));
-  lip.position.set(0,0.28,3.0); g.add(lip);
-  const cabinMat = new THREE.MeshPhysicalMaterial({color:0x223344, roughness:0.1, metalness:0.2, transmission:0.6, transparent:true, opacity:0.7});
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.6,0.55,1.8), cabinMat);
-  cabin.position.set(0,1.05,-0.2); g.add(cabin);
-  const cabinTop = new THREE.Mesh(new THREE.BoxGeometry(1.5,0.35,1.2), cabinMat);
-  cabinTop.position.set(0,1.35,-0.4); cabinTop.rotation.x=-0.15; g.add(cabinTop);
-  const wingMat = new THREE.MeshStandardMaterial({color:accent, emissive:accent, emissiveIntensity:0.6});
-  const ws1=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.5,0.1), bodyMat); ws1.position.set(-0.7,1.1,-2.0); g.add(ws1);
-  const ws2=ws1.clone(); ws2.position.x=0.7; g.add(ws2);
-  const wing=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.12,0.5), wingMat); wing.position.set(0,1.35,-2.0); g.add(wing);
-  const skirtMat = new THREE.MeshStandardMaterial({color:accent, emissive:accent, emissiveIntensity:1.2});
-  const sl=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.15,3.5), skirtMat); sl.position.set(-1.1,0.35,0); g.add(sl);
-  const sr=sl.clone(); sr.position.x=1.1; g.add(sr);
-  const underGlow=new THREE.Mesh(new THREE.BoxGeometry(2.0,0.05,4.2), new THREE.MeshBasicMaterial({color:accent, transparent:true, opacity:0.3}));
-  underGlow.position.set(0,0.12,0); g.add(underGlow);
-  const headMat = new THREE.MeshStandardMaterial({color:0xffffff, emissive:0xffffff, emissiveIntensity:2});
-  const hl=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.12,0.1), headMat); hl.position.set(-0.6,0.5,2.95); g.add(hl);
-  const hr=hl.clone(); hr.position.x=0.6; g.add(hr);
-  const tail=new THREE.Mesh(new THREE.BoxGeometry(1.8,0.1,0.08), new THREE.MeshStandardMaterial({color:accent, emissive:accent, emissiveIntensity:1.5}));
-  tail.position.set(0,0.65,-2.3); g.add(tail);
-  const wheelGeo=new THREE.CylinderGeometry(0.42,0.42,0.3,12);
-  const wheelMat=new THREE.MeshStandardMaterial({color:0x111111, roughness:0.7});
-  const rimMat=new THREE.MeshStandardMaterial({color:0x888888, metalness:0.9, roughness:0.2, emissive:accent, emissiveIntensity:0.3});
-  [[-1.0,0.42,1.5],[1.0,0.42,1.5],[-1.0,0.42,-1.5],[1.0,0.42,-1.5]].forEach(([x,y,z])=>{
-    const w=new THREE.Mesh(wheelGeo, wheelMat); w.position.set(x,y,z); w.rotation.z=Math.PI/2; w.castShadow=true; g.add(w);
-    const rim=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.32,8), rimMat); rim.position.set(x,y,z); rim.rotation.z=Math.PI/2; g.add(rim);
-  });
-  return g;
-}
-
-function createCarBody(startPos, startHeading){
-  const halfExtents = new CANNON.Vec3(1.1, 0.5, 2.3);
-  carBody = new CANNON.Body({
-    mass: CFG.carMass,
-    shape: new CANNON.Box(halfExtents),
-    position: new CANNON.Vec3(startPos.x, startPos.y + 0.8, startPos.z),
-    linearDamping: CFG.linearDamping,
-    angularDamping: CFG.angularDamping,
-  });
-  carBody.quaternion.setFromEuler(0, startHeading, 0);
-  carBody.ccdSpeedThreshold = 5;   // 速度超过 5m/s 启用 CCD
-  carBody.ccdRadius = 1.0;          // CCD 扫描半径
-  world.addBody(carBody);
-  // 碰撞音效
-  carBody.addEventListener('collide', (e)=>{
-    const impact = e.contact ? e.contact.getImpactVelocityAlongNormal() : 0;
-    if(Math.abs(impact) > 3) playCrashSound();
-  });
-}
-
-// ===================== 障碍物 =====================
-const OBSTACLE_TYPES = ['cone','banana','pole','pedestrian','oil'];
-function spawnObstacles(){
-  obstacles = [];
-  const count = Math.floor(trackLength / 30);
-  for(let i=0;i<count;i++){
-    const t=(i+1)/(count+1);
-    const p=trackCurve.getPointAt(t);
-    const tan=trackCurve.getTangentAt(t);
-    const n=new THREE.Vector3(-tan.z,0,tan.x).normalize();
-    const offset=rand(-CFG.trackWidth*0.7, CFG.trackWidth*0.7);
-    const pos=p.clone().add(n.multiplyScalar(offset));
-    const type=pick(OBSTACLE_TYPES);
-    const mesh=createObstacleMesh(type);
-    mesh.position.copy(pos);
-    mesh.position.y = pos.y + (type==='cone'?0.88 : type==='banana'?0.22 : type==='pedestrian'?1.1 : 0);
-    mesh.scale.setScalar(2.2);
-    worldGroup.add(mesh);
-
-    // physics body for solid obstacles
-    let body = null;
-    if(type==='pole' || type==='cone'){
-      const r = type==='pole'?0.3:0.4;
-      body = new CANNON.Body({ mass:0, shape:new CANNON.Cylinder(r,r,type==='pole'?6:1.6,8) });
-      body.position.set(pos.x, pos.y + (type==='pole'?3:0.8), pos.z);
-      world.addBody(body);
     }
-    obstacles.push({type, pos:mesh.position, mesh, body, radius:getObstacleRadius(type)*2.2, active:true});
-  }
-}
 
-function createObstacleMesh(type){
-  const theme=currentTheme;
-  if(type==='cone'){
-    const g=new THREE.Group();
-    g.add(new THREE.Mesh(new THREE.ConeGeometry(0.35,0.8,10), new THREE.MeshStandardMaterial({color:0xff6622, emissive:0xff4400, emissiveIntensity:0.3})));
-    const b=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.1,0.7), new THREE.MeshStandardMaterial({color:0x333333}));
-    b.position.y=-0.4; g.add(b); return g;
-  }
-  if(type==='banana'){
-    const g=new THREE.Group();
-    const b=new THREE.Mesh(new THREE.TorusGeometry(0.4,0.1,8,16,Math.PI), new THREE.MeshStandardMaterial({color:0xffdd33, roughness:0.5}));
-    b.rotation.x=Math.PI/2; b.rotation.z=Math.PI/4; g.add(b); return g;
-  }
-  if(type==='pole'){
-    const g=new THREE.Group();
-    const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.15,6,8), new THREE.MeshStandardMaterial({color:0x666666, roughness:0.6, metalness:0.5}));
-    pole.position.y=3; g.add(pole);
-    const arm=new THREE.Mesh(new THREE.BoxGeometry(2,0.1,0.1), new THREE.MeshStandardMaterial({color:0x555555}));
-    arm.position.set(0.5,5.5,0); g.add(arm);
-    const light=new THREE.Mesh(new THREE.SphereGeometry(0.2,8,8), new THREE.MeshStandardMaterial({color:theme.accent, emissive:theme.accent, emissiveIntensity:2}));
-    light.position.set(1.3,5.5,0); g.add(light); return g;
-  }
-  if(type==='pedestrian'){
-    const g=new THREE.Group();
-    const body=new THREE.Mesh(new THREE.CapsuleGeometry(0.25,0.8,4,8), new THREE.MeshStandardMaterial({color:pick([0xff4444,0x4488ff,0x44ff88,0xffaa44]), roughness:0.7}));
-    body.position.y=1.0; g.add(body);
-    const head=new THREE.Mesh(new THREE.SphereGeometry(0.2,10,10), new THREE.MeshStandardMaterial({color:0xeebb99, roughness:0.6}));
-    head.position.y=1.65; g.add(head); return g;
-  }
-  if(type==='oil'){
-    return new THREE.Mesh(new THREE.CircleGeometry(1.2,20), new THREE.MeshStandardMaterial({color:0x111122, roughness:0.2, metalness:0.6, transparent:true, opacity:0.8}));
-  }
-  return new THREE.Mesh();
-}
-function getObstacleRadius(type){
-  if(type==='oil') return 1.2;
-  if(type==='banana') return 0.5;
-  if(type==='pedestrian') return 0.6;
-  if(type==='pole') return 0.5;
-  return 0.6;
-}
-
-// ===================== AI =====================
-function spawnAI(){
-  aiCars = [];
-  const colors = [0xff3c8a, 0x39ff14, 0xffaa00];
-  for(let i=0;i<3;i++){
-    const mesh = buildCarMesh();
-    mesh.children[0].material.color.setHex(colors[i]);
-    const p = trackCurve.getPointAt(0.05*(i+1));
-    mesh.position.copy(p); mesh.position.y=0.3;
-    worldGroup.add(mesh);
-    aiCars.push({mesh, t:0.05*(i+1), speed:rand(0.04,0.07), offset:rand(-3,3), color:colors[i]});
-  }
-}
-
-// ===================== 粒子系统 =====================
-function buildParticles(themeKey){
-  particleSystems.forEach(p=>{ scene.remove(p.mesh); });
-  particleSystems = [];
-  const theme = currentTheme;
-  const count = IS_MOBILE ? 150 : 300;
-  const positions = new Float32Array(count*3);
-  const velocities = [];
-
-  if(themeKey==='neon'){
-    // floating neon light spots
-    const geo = new THREE.BufferGeometry();
-    for(let i=0;i<count;i++){
-      positions[i*3]=rand(-200,200); positions[i*3+1]=rand(2,40); positions[i*3+2]=rand(-200,200);
-      velocities.push(new THREE.Vector3(rand(-0.5,0.5), rand(0.1,0.5), rand(-0.5,0.5)));
+    // === 远处建筑：带窗户贴图的盒子 ===
+    const winTex = this.makeBuildingTexture();
+    const bldColors = [0x8a9bb0, 0x9fb0c4, 0x7a8fa6, 0xa8b8cc, 0x6b7d92];
+    for (let i = 0; i < 24; i++) {
+      const t = i / 24;
+      const p = this.curve.getPoint(t);
+      const tan = this.curve.getTangent(t);
+      const len = Math.hypot(tan.x, tan.z) || 1;
+      const nx = -tan.z/len, nz = tan.x/len;
+      const side = i % 2 ? 1 : -1;
+      const dist = this.width/2 + 80 + Math.random()*60;
+      const h = 18 + Math.random()*40;
+      const w = 10 + Math.random()*10;
+      const color = bldColors[i % bldColors.length];
+      const bMat = new THREE.MeshStandardMaterial({ map: winTex, color, roughness: 0.7 });
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), bMat);
+      b.position.set(p.x + nx*dist*side, h/2, p.z + nz*dist*side);
+      b.rotation.y = Math.random() * Math.PI;
+      scene.add(b);
     }
-    geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
-    const mat = new THREE.PointsMaterial({color:theme.accent, size:1.5, transparent:true, opacity:0.8, blending:THREE.AdditiveBlending, depthWrite:false});
-    const pts = new THREE.Points(geo, mat);
-    scene.add(pts);
-    particleSystems.push({mesh:pts, velocities, type:'float', bounds:200});
-  } else if(themeKey==='desert'){
-    // sand dust
-    const geo = new THREE.BufferGeometry();
-    for(let i=0;i<count;i++){
-      positions[i*3]=rand(-150,150); positions[i*3+1]=rand(0.5,15); positions[i*3+2]=rand(-150,150);
-      velocities.push(new THREE.Vector3(rand(2,8), rand(-0.2,0.2), rand(-1,1)));
+
+    // === 路灯：赛道两侧每隔一段 ===
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.5, metalness: 0.3 });
+    const lampMat = new THREE.MeshStandardMaterial({ color: 0xffeeaa, emissive: 0xffcc66, emissiveIntensity: 0.6 });
+    for (let i = 0; i < pts.length; i += 16) {
+      const p = pts[i];
+      const next = pts[(i+1) % pts.length];
+      const dx = next.x - p.x, dz = next.z - p.z;
+      const len = Math.hypot(dx, dz) || 1;
+      const nx = -dz/len, nz = dx/len;
+      for (let side = -1; side <= 1; side += 2) {
+        const px = p.x + nx * (this.width/2 + 1.5) * side;
+        const pz = p.z + nz * (this.width/2 + 1.5) * side;
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 6, 6), poleMat);
+        pole.position.set(px, 3, pz);
+        scene.add(pole);
+        const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8), lampMat);
+        lamp.position.set(px, 6.2, pz);
+        scene.add(lamp);
+      }
     }
-    geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
-    const mat = new THREE.PointsMaterial({color:0xd4a574, size:2, transparent:true, opacity:0.4, depthWrite:false});
-    const pts = new THREE.Points(geo, mat);
-    scene.add(pts);
-    particleSystems.push({mesh:pts, velocities, type:'wind', bounds:150});
-  } else {
-    // cloud mist + waterfall
-    const geo = new THREE.BufferGeometry();
-    for(let i=0;i<count;i++){
-      positions[i*3]=rand(-150,150); positions[i*3+1]=rand(5,60); positions[i*3+2]=rand(-150,150);
-      velocities.push(new THREE.Vector3(rand(-0.3,0.3), rand(-0.5,-0.1), rand(-0.3,0.3)));
+  },
+
+  makeBuildingTexture() {
+    const c = document.createElement('canvas');
+    c.width = 128; c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#4a5568'; ctx.fillRect(0, 0, 128, 256);
+    // 窗户网格
+    ctx.fillStyle = '#a8d4ff';
+    for (let y = 8; y < 256; y += 16) {
+      for (let x = 6; x < 128; x += 14) {
+        const lit = Math.random() > 0.4;
+        ctx.fillStyle = lit ? '#ffe89a' : '#5a7a9a';
+        ctx.fillRect(x, y, 8, 10);
+      }
     }
-    geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
-    const mat = new THREE.PointsMaterial({color:0xffffff, size:3, transparent:true, opacity:0.3, depthWrite:false});
-    const pts = new THREE.Points(geo, mat);
-    scene.add(pts);
-    particleSystems.push({mesh:pts, velocities, type:'mist', bounds:150});
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(2, 4);
+    return t;
   }
+};
+
+/* ============================ 5. VEHICLE PHYSICS ============================ */
+/* 简化街机车辆动力学：速度向量 + 侧向抓地 + 转向（速度相关）+ 手刹滑移 */
+function createVehicle(isPlayer) {
+  return {
+    pos: new THREE.Vector3(),
+    heading: 0,          // 朝向（弧度，0=+Z）
+    vel: new THREE.Vector3(),  // 世界速度
+    steer: 0,            // 当前转向角（弧度）
+    steerInput: 0,       // 输入 -1..1
+    wheelSpin: 0,
+    onGround: true,
+    isPlayer,
+    progress: 0,         // 沿赛道进度 0..1
+    lap: 0,
+    lastT: null,         // 上一帧赛道参数（用于圈数检测）
+    lapTime: 0,
+    bestLap: Infinity,
+    finished: false,
+    finishTime: 0,
+    color: isPlayer ? 0x00dcff : (Math.random()*0xffffff),
+    // 视觉
+    mesh: null, wheelFL:null, wheelFR:null, wheelRL:null, wheelRR:null,
+    roll: 0, pitch: 0,  // 姿态反馈
+  };
 }
 
-function updateParticles(dt){
-  if(!carBody) return;
-  const cp = carBody.position;
-  particleSystems.forEach(ps=>{
-    const pos = ps.mesh.geometry.attributes.position.array;
-    for(let i=0;i<ps.velocities.length;i++){
-      pos[i*3] += ps.velocities[i].x*dt;
-      pos[i*3+1] += ps.velocities[i].y*dt;
-      pos[i*3+2] += ps.velocities[i].z*dt;
-      // wrap around car
-      const dx=pos[i*3]-cp.x, dz=pos[i*3+2]-cp.z;
-      if(Math.abs(dx)>ps.bounds) pos[i*3] = cp.x + Math.sign(-dx)*ps.bounds;
-      if(Math.abs(dz)>ps.bounds) pos[i*3+2] = cp.z + Math.sign(-dz)*ps.bounds;
-      if(ps.type==='mist' && pos[i*3+1]<2) pos[i*3+1]=60;
-      if(ps.type==='wind' && Math.abs(pos[i*3]-cp.x)>ps.bounds) pos[i*3]=cp.x - ps.bounds;
+function vehicleUpdate(v, dt, input, isAI) {
+  // --- 纵向力 ---
+  const speed = v.vel.length();
+  const forward = new THREE.Vector3(Math.sin(v.heading), 0, Math.cos(v.heading));
+  const fwdSpeed = v.vel.dot(forward);
+
+  let longForce = 0;
+  if (input.gas > 0) {
+    longForce += CFG.accel * input.gas;
+  }
+  if (input.brake > 0) {
+    if (fwdSpeed > 0.5) longForce -= CFG.brakeForce * input.brake;
+    else longForce -= CFG.accel * 0.6 * input.brake; // 倒车
+  }
+  // 滚动阻力 + 空气阻力
+  longForce -= CFG.rollResist * Math.sign(fwdSpeed);
+  longForce -= CFG.drag * fwdSpeed * Math.abs(fwdSpeed);
+
+  // 限速
+  const maxV = input.brake && fwdSpeed < 0 ? -CFG.reverseMax : CFG.maxSpeed;
+  let newFwd = fwdSpeed + longForce * dt;
+  if (input.brake && fwdSpeed <= 0.5 && newFwd < -CFG.reverseMax) newFwd = -CFG.reverseMax;
+  if (newFwd > CFG.maxSpeed) newFwd = CFG.maxSpeed;
+
+  // --- 转向（速度相关：低速灵敏、高速稳定）---
+  const speedFactor = Math.min(1, speed / 25);
+  const steerMult = CFG.lowSpeedSteer * (1 - speedFactor) + CFG.highSpeedSteer * speedFactor;
+  v.steer = THREE.MathUtils.lerp(v.steer, input.steer * CFG.steerMax * steerMult, Math.min(1, dt*6));
+  // 转向改变速度方向：低速转向灵敏、高速收敛（转向率随速度递减但有下限）
+  if (Math.abs(fwdSpeed) > 0.1) {
+    const steerRate = Math.max(0.6, 1.0 - speed / 70);
+    const turnRate = v.steer * steerRate * 5.0;
+    v.heading += turnRate * dt * Math.sign(fwdSpeed);
+  }
+
+  // --- 侧向抓地（滑移模型）---
+  const right = new THREE.Vector3(Math.cos(v.heading), 0, -Math.sin(v.heading));
+  const latSpeed = v.vel.dot(right);
+  let grip = input.handbrake ? CFG.handbrakeGrip : CFG.grip;
+  if (isAI) grip *= 0.9;
+  const latForce = -latSpeed * grip;
+  const newLat = latSpeed + latForce * dt;
+
+  // 合成新速度
+  v.vel.copy(forward).multiplyScalar(newFwd).addScaledVector(right, newLat);
+
+  // --- 位置积分（子步检测，防止高速穿模）---
+  const steps = Math.max(1, Math.ceil(v.vel.length() * dt / 1.0)); // 每步最多移动1.0m
+  const sdt = dt / steps;
+  for (let s = 0; s < steps; s++) {
+    v.pos.addScaledVector(v.vel, sdt);
+
+    // 护栏碰撞（边界贴近护栏内侧，避免视觉穿模）
+    const near = closestPointOnTrack(v.pos);
+    const dist = v.pos.distanceTo(near.point);
+    const boundary = CFG.trackWidth / 2 - 1.6;
+    if (dist > boundary) {
+      const toCenter = new THREE.Vector3().subVectors(near.point, v.pos).normalize();
+      const overlap = dist - boundary;
+      v.pos.addScaledVector(toCenter, overlap + 0.2);
+      const vWall = v.vel.dot(toCenter);
+      if (vWall < 0) {
+        v.vel.addScaledVector(toCenter, -vWall * 1.3);
+        v.vel.multiplyScalar(0.85);
+      }
+      if (speed > 8) Audio.crash();
     }
-    ps.mesh.geometry.attributes.position.needsUpdate = true;
-  });
-}
 
-// ===================== 音效 =====================
-function initAudio(){
-  if(audioCtx) return;
-  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-}
-
-function startEngineSound(){
-  if(!audioCtx) initAudio();
-  if(audioCtx.state==='suspended') audioCtx.resume();
-  const osc = audioCtx.createOscillator();
-  osc.type='sawtooth'; osc.frequency.value=60;
-  const gain = audioCtx.createGain(); gain.gain.value=0.08;
-  const filt = audioCtx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.value=800;
-  osc.connect(filt); filt.connect(gain); gain.connect(audioCtx.destination);
-  osc.start();
-  engineSound = {osc, gain, filt};
-}
-function updateEngineSound(speed){
-  if(!engineSound) return;
-  const rpm = 60 + speed*8;
-  engineSound.osc.frequency.setTargetAtTime(rpm, audioCtx.currentTime, 0.05);
-  engineSound.filt.frequency.setTargetAtTime(600+speed*30, audioCtx.currentTime, 0.05);
-}
-function playCrashSound(){
-  if(!audioCtx) return;
-  const buf = audioCtx.createBuffer(1, audioCtx.sampleRate*0.3, audioCtx.sampleRate);
-  const d = buf.getChannelData(0);
-  for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2);
-  const src=audioCtx.createBufferSource(); src.buffer=buf;
-  const g=audioCtx.createGain(); g.gain.value=0.3;
-  const f=audioCtx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=500;
-  src.connect(f); f.connect(g); g.connect(audioCtx.destination);
-  src.start();
-}
-
-// ===================== BGM =====================
-const CHORDS=[[220,261.63,329.63],[174.61,220,261.63],[261.63,329.63,392],[196,246.94,293.66]];
-const BASS_NOTES=[110,87.31,130.81,98];
-function startMusic(){
-  if(!audioCtx) initAudio();
-  if(audioCtx.state==='suspended') audioCtx.resume();
-  stopMusic(); if(!musicOn) return;
-  const beat=0.6, bar=beat*4, t0=audioCtx.currentTime+0.05;
-  const master=audioCtx.createGain(); master.gain.value=0.3; master.connect(audioCtx.destination);
-  const comp=audioCtx.createDynamicsCompressor(); comp.threshold.value=-12; comp.ratio.value=4; comp.connect(master);
-
-  const padGain=audioCtx.createGain(); padGain.gain.value=0.15; padGain.connect(comp);
-  function playPad(st,chord,dur){
-    chord.forEach(f=>{
-      const o1=audioCtx.createOscillator(); o1.type='sawtooth'; o1.frequency.value=f;
-      const o2=audioCtx.createOscillator(); o2.type='sawtooth'; o2.frequency.value=f*1.005;
-      const g=audioCtx.createGain();
-      g.gain.setValueAtTime(0,st); g.gain.linearRampToValueAtTime(0.1,st+0.3);
-      g.gain.setValueAtTime(0.1,st+dur-0.3); g.gain.linearRampToValueAtTime(0.001,st+dur);
-      const fl=audioCtx.createBiquadFilter(); fl.type='lowpass'; fl.frequency.value=1200;
-      o1.connect(fl); o2.connect(fl); fl.connect(g); g.connect(padGain);
-      o1.start(st); o1.stop(st+dur+0.05); o2.start(st); o2.stop(st+dur+0.05);
-    });
-  }
-  const bassGain=audioCtx.createGain(); bassGain.gain.value=0.4; bassGain.connect(comp);
-  function playBass(st,freq){
-    for(let b=0;b<4;b++){
-      const o=audioCtx.createOscillator(); o.type='sawtooth'; o.frequency.value=freq;
-      const g=audioCtx.createGain(); const bt=st+b*beat;
-      g.gain.setValueAtTime(0,bt); g.gain.linearRampToValueAtTime(0.3,bt+0.01); g.gain.exponentialRampToValueAtTime(0.001,bt+beat*0.9);
-      const fl=audioCtx.createBiquadFilter(); fl.type='lowpass'; fl.frequency.value=350;
-      o.connect(fl); fl.connect(g); g.connect(bassGain); o.start(bt); o.stop(bt+beat);
+    // 路锥碰撞
+    if (Track.obstacles) {
+      for (const ob of Track.obstacles) {
+        const dx = v.pos.x - ob.pos.x;
+        const dz = v.pos.z - ob.pos.z;
+        const d = Math.hypot(dx, dz);
+        const minD = ob.radius + 1.4;
+        if (d < minD) {
+          const push = (minD - d) + 0.15;
+          const nx = dx / (d || 1), nz = dz / (d || 1);
+          v.pos.x += nx * push;
+          v.pos.z += nz * push;
+          const vdot = v.vel.x * nx + v.vel.z * nz;
+          if (vdot < 0) {
+            v.vel.x -= vdot * nx * 1.1;
+            v.vel.z -= vdot * nz * 1.1;
+            v.vel.multiplyScalar(0.85);
+          }
+          if (speed > 5) Audio.crash();
+        }
+      }
     }
-  }
-  const leadNotes=[440,523.25,659.25,523.25,440,392,440,523.25,587.33,659.25,783.99,659.25,587.33,523.25,440,392];
-  const leadGain=audioCtx.createGain(); leadGain.gain.value=0.1; leadGain.connect(comp);
-  function playLead(st){
-    for(let i=0;i<16;i++){
-      const o=audioCtx.createOscillator(); o.type='triangle'; o.frequency.value=leadNotes[i];
-      const g=audioCtx.createGain(); const nt=st+i*beat*0.5;
-      g.gain.setValueAtTime(0,nt); g.gain.linearRampToValueAtTime(0.2,nt+0.02); g.gain.exponentialRampToValueAtTime(0.001,nt+beat*0.45);
-      const fl=audioCtx.createBiquadFilter(); fl.type='lowpass'; fl.frequency.value=3000;
-      o.connect(fl); fl.connect(g); g.connect(leadGain); o.start(nt); o.stop(nt+beat*0.5);
-    }
-  }
-  const drumGain=audioCtx.createGain(); drumGain.gain.value=0.4; drumGain.connect(comp);
-  function kick(t){const o=audioCtx.createOscillator(); o.frequency.setValueAtTime(140,t); o.frequency.exponentialRampToValueAtTime(45,t+0.12); const g=audioCtx.createGain(); g.gain.setValueAtTime(0.8,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.18); o.connect(g); g.connect(drumGain); o.start(t); o.stop(t+0.2)}
-  function snare(t){const buf=audioCtx.createBuffer(1,audioCtx.sampleRate*0.18,audioCtx.sampleRate); const d=buf.getChannelData(0); for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2); const s=audioCtx.createBufferSource(); s.buffer=buf; const f=audioCtx.createBiquadFilter(); f.type='highpass'; f.frequency.value=1500; const g=audioCtx.createGain(); g.gain.setValueAtTime(0.4,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.12); s.connect(f); f.connect(g); g.connect(drumGain); s.start(t); s.stop(t+0.14)}
-  function hihat(t){const buf=audioCtx.createBuffer(1,audioCtx.sampleRate*0.05,audioCtx.sampleRate); const d=buf.getChannelData(0); for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1; const s=audioCtx.createBufferSource(); s.buffer=buf; const f=audioCtx.createBiquadFilter(); f.type='highpass'; f.frequency.value=8000; const g=audioCtx.createGain(); g.gain.setValueAtTime(0.08,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.03); s.connect(f); f.connect(g); g.connect(drumGain); s.start(t); s.stop(t+0.04)}
-  function playDrums(st){for(let b=0;b<4;b++){kick(st+b*beat); if(b===1||b===3)snare(st+b*beat); hihat(st+b*beat); hihat(st+b*beat+beat*0.5)}}
 
-  function scheduleBars(st){
-    for(let bi=0;bi<4;bi++){const bt=st+bi*bar; playPad(bt,CHORDS[bi],bar); playBass(bt,BASS_NOTES[bi]); playLead(bt); playDrums(bt)}
-  }
-  const loopDur=bar*4; scheduleBars(t0);
-  const loopTimer=setInterval(()=>{if(!musicNodes){clearInterval(loopTimer);return} scheduleBars(audioCtx.currentTime+0.05)}, loopDur*1000);
-  musicNodes={master, loopTimer};
-}
-function stopMusic(){
-  if(musicNodes){clearInterval(musicNodes.loopTimer); try{musicNodes.master.disconnect()}catch(e){} musicNodes=null}
-}
-
-// ===================== 游戏流程 =====================
-let selectedMap = null;
-
-function startRace(themeKey){
-  // 清理上一局残留（retry 场景）
-  if(engineSound){try{engineSound.osc.stop()}catch(e){} engineSound=null}
-  if(carBody){world.removeBody(carBody); carBody=null}
-  if(carMesh){scene.remove(carMesh); carMesh=null}
-  aiCars.forEach(a=>{ if(worldGroup) worldGroup.remove(a.mesh) }); aiCars=[];
-  obstacles.forEach(o=>{ if(o.body) world.removeBody(o.body) }); obstacles=[];
-  wallBodies.forEach(b=>world.removeBody(b)); wallBodies=[];
-  if(worldGroup){scene.remove(worldGroup); worldGroup=null}
-  sceneryMeshes=[];
-  particleSystems.forEach(p=>scene.remove(p.mesh)); particleSystems=[];
-
-  const theme = MAP_THEMES[themeKey];
-  currentThemeKey = themeKey;
-  applyTheme(theme);
-  generateTrack(themeKey);
-  buildTrack();
-  buildScenery();
-  buildParticles(themeKey);
-  mmCached = null; // 重置小地图缓存
-
-  // car
-  carMesh = buildCarMesh();
-  const startPos = trackCurve.getPointAt(0);
-  const startTan = trackCurve.getTangentAt(0);
-  const startHeading = Math.atan2(startTan.x, startTan.z);
-  carMesh.position.set(startPos.x, startPos.y + 0.8, startPos.z);
-  carMesh.rotation.y = startHeading;
-  scene.add(carMesh);
-
-  createCarBody(startPos, startHeading);
-
-  spawnObstacles();
-  spawnAI();
-  startEngineSound();
-
-  distance=0; raceTime=0; maxSpeedReached=0; trackProgress=0;
-  gameState='countdown';
-  document.getElementById('hud').classList.add('active');
-  document.getElementById('menu').classList.remove('active');
-  document.getElementById('result').classList.remove('active');
-
-  let n=3;
-  const cdEl=document.getElementById('cd-num');
-  const cdDiv=document.getElementById('countdown');
-  cdDiv.classList.add('active'); cdEl.textContent=n; cdEl.style.color='#fff';
-  const cdInt=setInterval(()=>{
-    n--;
-    if(n>0){cdEl.textContent=n; cdEl.style.animation='none'; void cdEl.offsetWidth; cdEl.style.animation='pop .8s ease-out'}
-    else if(n===0){cdEl.textContent='GO!'; cdEl.style.color='#'+theme.accent.toString(16).padStart(6,'0')}
-    else{clearInterval(cdInt); cdDiv.classList.remove('active'); gameState='racing'; startMusic()}
-  }, 900);
-  if('ontouchstart' in window) document.getElementById('touch').classList.add('active');
-}
-
-// ===================== 物理更新 =====================
-const _fwdVec = new THREE.Vector3();
-const _qTmp = new THREE.Quaternion();
-function getCarForward(){
-  // 从四元数准确计算前向向量
-  const q = carBody.quaternion;
-  _qTmp.set(q.x, q.y, q.z, q.w);
-  _fwdVec.set(0,0,1).applyQuaternion(_qTmp);
-  return _fwdVec;
-}
-
-function updateCarPhysics(dt){
-  if(!carBody) return;
-  const fwd = getCarForward();
-  const fwdX = fwd.x, fwdZ = fwd.z;
-  const speed = carBody.velocity.length();
-  // 前向速度（用于仪表和加速力方向）
-  const fwdSpeed = carBody.velocity.x*fwdX + carBody.velocity.z*fwdZ;
-
-  // 引擎力（沿车头方向）
-  if(input.gas && fwdSpeed < CFG.maxSpeed){
-    carBody.applyForce(new CANNON.Vec3(fwdX*CFG.engineForce, 0, fwdZ*CFG.engineForce), carBody.position);
-  }
-  // 刹车
-  if(input.brake){
-    const brakeDecel = CFG.brakeForce / CFG.carMass;
-    const f = Math.max(0, fwdSpeed - brakeDecel*dt*3.5);
-    carBody.velocity.x = fwdX*f + (carBody.velocity.x - fwdX*fwdSpeed)*0.92;
-    carBody.velocity.z = fwdZ*f + (carBody.velocity.z - fwdZ*fwdSpeed)*0.92;
-  }
-
-  // 下压力：速度越快贴地越紧，防飞天
-  if(speed > 1){
-    const down = speed * speed * CFG.downForce * 0.5;
-    carBody.applyForce(new CANNON.Vec3(0, -down, 0), carBody.position);
-  }
-
-  // 转向：速度越快转向越灵敏但有上限，加入平滑
-  const steerInput = (input.left?1:0) - (input.right?1:0);
-  const steerFactor = Math.min(1, speed/15); // 低速不打死方向
-  const targetAngVel = steerInput * CFG.maxSteer * CFG.steerSpeed * steerFactor * (fwdSpeed>=0?1:-0.6);
-  carBody.angularVelocity.y = THREE.MathUtils.lerp(carBody.angularVelocity.y, targetAngVel, 0.12);
-
-  // 防翻滚：强制车身保持 upright
-  const euler = new CANNON.Vec3();
-  carBody.quaternion.toEuler(euler);
-  if(Math.abs(euler.x) > 0.15){ carBody.angularVelocity.x *= 0.6; euler.x *= 0.9; }
-  if(Math.abs(euler.z) > 0.15){ carBody.angularVelocity.z *= 0.6; euler.z *= 0.9; }
-  // 轻微修正俯仰/侧倾，避免永久倾斜
-  carBody.quaternion.setFromEuler(euler.x*0.95, euler.y, euler.z*0.95);
-
-  // 地面跟随：钳制到赛道高度，防钻地
-  const trackY = getTrackHeightAt(carBody.position.x, carBody.position.z);
-  const groundY = trackY + 0.55; // 车身半高
-  if(carBody.position.y < groundY){
-    carBody.position.y = groundY;
-    if(carBody.velocity.y < 0) carBody.velocity.y = 0;
-  }
-  // 飞天保护：超过赛道高度+15m 强制拉回
-  if(carBody.position.y > trackY + 18){
-    carBody.position.y = trackY + 2;
-    carBody.velocity.y = -2;
-  }
-
-  // 速度上限钳制
-  if(speed > CFG.maxSpeed){
-    const s = CFG.maxSpeed / speed;
-    carBody.velocity.scale(s, carBody.velocity);
-  }
-
-  if(fwdSpeed > maxSpeedReached) maxSpeedReached = fwdSpeed;
-
-  // 同步 mesh
-  carMesh.position.set(carBody.position.x, carBody.position.y, carBody.position.z);
-  carMesh.quaternion.set(carBody.quaternion.x, carBody.quaternion.y, carBody.quaternion.z, carBody.quaternion.w);
-  // 过弯侧倾
-  const tilt = -carBody.angularVelocity.y * 0.25;
-  carMesh.rotation.z = THREE.MathUtils.lerp(carMesh.rotation.z, tilt, 0.1);
-
-  updateEngineSound(Math.abs(fwdSpeed));
-
-  trackProgress = findNearestT(carBody.position);
-  distance = Math.floor(trackProgress * trackLength);
-
-  // 障碍物碰撞
-  for(const obs of obstacles){
-    if(!obs.active) continue;
-    const dx=carBody.position.x-obs.pos.x, dz=carBody.position.z-obs.pos.z;
-    const d=Math.sqrt(dx*dx+dz*dz);
-    if(d < obs.radius + 1.5){
-      if(obs.type==='banana'){
-        carBody.angularVelocity.y += rand(-4,4);
-        carBody.velocity.scale(0.5, carBody.velocity);
-        obs.active=false; obs.mesh.visible=false;
-        playCrashSound();
-      } else if(obs.type==='oil'){
-        carBody.velocity.scale(0.85, carBody.velocity);
-        carBody.angularVelocity.y += (Math.random()-0.5)*3;
-      } else if(obs.type==='pedestrian'){
-        carBody.velocity.scale(0.3, carBody.velocity);
-        obs.active=false; obs.mesh.visible=false;
-        raceTime += 3;
-        playCrashSound();
+    // 树木碰撞（半径匹配视觉树冠底部宽度）
+    if (Track.trees) {
+      for (const tr of Track.trees) {
+        const dx = v.pos.x - tr.pos.x;
+        const dz = v.pos.z - tr.pos.z;
+        const d = Math.hypot(dx, dz);
+        const minD = tr.radius + 1.4;
+        if (d < minD) {
+          const push = (minD - d) + 0.15;
+          const nx = dx / (d || 1), nz = dz / (d || 1);
+          v.pos.x += nx * push;
+          v.pos.z += nz * push;
+          const vdot = v.vel.x * nx + v.vel.z * nz;
+          if (vdot < 0) {
+            v.vel.x -= vdot * nx * 1.2;
+            v.vel.z -= vdot * nz * 1.2;
+            v.vel.multiplyScalar(0.65);
+          }
+          if (speed > 5) Audio.crash();
+        }
       }
     }
   }
 
-  if(trackProgress >= 0.99) finishRace();
+  // 姿态反馈：过弯侧倾、加减速俯仰
+  const targetRoll = -v.steer * Math.min(1, speed/30) * 0.12;
+  const targetPitch = (input.brake ? 0.06 : -input.gas*0.04) * Math.min(1, speed/20);
+  v.roll = THREE.MathUtils.lerp(v.roll, targetRoll, Math.min(1, dt*8));
+  v.pitch = THREE.MathUtils.lerp(v.pitch, targetPitch, Math.min(1, dt*6));
+
+  v.wheelSpin += newFwd * dt * 0.5;
 }
 
-function findNearestT(pos){
-  if(!trackHeightSamples.length) return trackProgress;
-  let bestT = trackProgress, bestDist = Infinity;
-  const startT = trackProgress;
-  const range = 0.06;
-  const start = Math.max(0, Math.floor((startT-range)*trackHeightSamples.length));
-  const end = Math.min(trackHeightSamples.length, Math.ceil((startT+range)*trackHeightSamples.length));
-  for(let i=start;i<end;i++){
-    const s = trackHeightSamples[i];
-    const dx = s.x-pos.x, dz = s.z-pos.z;
-    const d = dx*dx+dz*dz;
-    if(d<bestDist){bestDist=d; bestT=s.t}
+// 找车辆在赛道上的最近点（用于碰撞+进度）
+function closestPointOnTrack(pos) {
+  const seg = CFG.trackSegments;
+  let best = Infinity, bestPt = null, bestT = 0, bestTan = null;
+  // 粗搜 + 精搜：每段线性近似
+  for (let i = 0; i < seg; i++) {
+    const a = Track.points[i], b = Track.points[(i+1)%seg];
+    const abx = b.x-a.x, abz = b.z-a.z;
+    const apx = pos.x-a.x, apz = pos.z-a.z;
+    const ab2 = abx*abx+abz*abz || 1;
+    let t = (apx*abx + apz*abz) / ab2;
+    t = Math.max(0, Math.min(1, t));
+    const px = a.x + abx*t, pz = a.z + abz*t;
+    const dx = pos.x-px, dz = pos.z-pz;
+    const d2 = dx*dx+dz*dz;
+    if (d2 < best) { best = d2; bestPt = new THREE.Vector3(px, 0, pz); bestT = (i+t)/seg;
+      bestTan = new THREE.Vector3(abx, 0, abz).normalize(); }
   }
-  return bestT;
+  return { point: bestPt, t: bestT, tangent: bestTan };
 }
 
-function updateAI(dt){
-  for(const ai of aiCars){
-    ai.t += ai.speed*dt;
-    if(ai.t>=1) ai.t = 0;
-    const p=trackCurve.getPointAt(ai.t);
-    const tan=trackCurve.getTangentAt(ai.t);
-    const n=new THREE.Vector3(-tan.z,0,tan.x).normalize();
-    ai.mesh.position.set(p.x+n.x*ai.offset, p.y+0.3, p.z+n.z*ai.offset);
-    ai.mesh.rotation.y = Math.atan2(tan.x, tan.z);
+/* ============================ 6. AI ============================ */
+const AI = {
+  update(v, dt, skill) {
+    // 找到前方目标点
+    const near = closestPointOnTrack(v.pos);
+    const lookAhead = 0.015 + (v.vel.length()/CFG.maxSpeed)*0.04;
+    const targetT = (near.t + lookAhead) % 1;
+    const target = Track.curve.getPoint(targetT);
+    const toTarget = new THREE.Vector3().subVectors(target, v.pos);
+    let targetHeading = Math.atan2(toTarget.x, toTarget.z);
+    // 转向到目标
+    let diff = targetHeading - v.heading;
+    while (diff > Math.PI) diff -= Math.PI*2;
+    while (diff < -Math.PI) diff += Math.PI*2;
+    let steer = Math.max(-1, Math.min(1, diff * 3.5));
+
+    // 回中修正：偏离中心过远时，额外朝中心打方向
+    const toCenter = new THREE.Vector3().subVectors(near.point, v.pos);
+    const centerDist = toCenter.length();
+    if (centerDist > CFG.trackWidth * 0.25) {
+      const centerHeading = Math.atan2(toCenter.x, toCenter.z);
+      let cd = centerHeading - v.heading;
+      while (cd > Math.PI) cd -= Math.PI*2;
+      while (cd < -Math.PI) cd += Math.PI*2;
+      const steerCenter = Math.max(-1, Math.min(1, cd * 3.0));
+      const blend = Math.min(0.7, centerDist / CFG.trackWidth);
+      steer = steer * (1 - blend) + steerCenter * blend;
+    }
+    // 弯道减速：前方曲率
+    const ahead2 = (targetT + 0.02) % 1;
+    const p2 = Track.curve.getPoint(ahead2);
+    const dir1 = new THREE.Vector3().subVectors(target, near.point).normalize();
+    const dir2 = new THREE.Vector3().subVectors(p2, target).normalize();
+    const curve = Math.abs(Math.asin(Math.max(-1,Math.min(1, dir1.x*dir2.z - dir1.z*dir2.x))));
+    const speed = v.vel.length();
+    // 弯道减速：曲率越大速度越低，但不低于极速的 25%
+    const targetSpeed = CFG.maxSpeed * skill * Math.max(0.25, 1 - curve * 0.9);
+    let gas = 1, brake = 0;
+    if (speed > targetSpeed) { gas = 0; brake = 0.6; }
+    else if (speed < targetSpeed * 0.8) gas = 1;
+    else gas = 0.5;
+    // 防打转：如果速度过低且不在弯心，给油
+    if (speed < 5) { gas = 1; brake = 0; }
+    vehicleUpdate(v, dt, { steer, gas, brake, handbrake:false }, true);
   }
-}
+};
 
-// ===================== 相机 =====================
-let camPos = new THREE.Vector3(), camLook = new THREE.Vector3();
-const _camTarget = new THREE.Vector3(), _camLookTarget = new THREE.Vector3();
-function updateCamera(dt){
-  if(!carBody || !carMesh) return;
-  const fwd = getCarForward();
-  const cp = carBody.position;
-  // 相机高度跟随赛道高度，不随车身俯仰乱飞
-  const trackY = getTrackHeightAt(cp.x, cp.z);
+/* ============================ 7. RENDER ============================ */
+const Render = {
+  scene: null, camera: null, renderer: null, cockpit: null,
+  player: null, aiCars: [], sun: null,
+  init() {
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0x88bbee);
+    this.scene.fog = new THREE.Fog(0x88bbee, 180, 600);
 
-  if(cameraMode===3){
-    carMesh.visible = true;
-    _camTarget.set(cp.x, cp.y, cp.z).addScaledVector(fwd, -11);
-    _camTarget.y = Math.max(trackY + 5, cp.y + 4.5);
-    camPos.lerp(_camTarget, 0.1);
-    _camLookTarget.set(cp.x, cp.y+1.2, cp.z).addScaledVector(fwd, 10);
-    camLook.lerp(_camLookTarget, 0.12);
-  } else {
-    carMesh.visible = false;
-    _camTarget.set(cp.x, cp.y+2, cp.z).addScaledVector(fwd, 0.5);
-    camPos.lerp(_camTarget, 0.3);
-    _camLookTarget.set(cp.x, cp.y+1.8, cp.z).addScaledVector(fwd, 18);
-    camLook.lerp(_camLookTarget, 0.18);
+    this.camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+    try {
+      this.renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game'), antialias: true });
+    } catch (e) {
+      document.body.innerHTML = '<div style="color:#fff;padding:40px;font-family:sans-serif;text-align:center"><h2>WebGL 不可用</h2><p>请使用支持 WebGL 的 Chrome/Edge 浏览器，并确保已启用硬件加速。</p></div>';
+      throw e;
+    }
+    this.renderer.setSize(innerWidth, innerHeight);
+    const isMobile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    this.renderer.setPixelRatio(isMobile ? Math.min(devicePixelRatio, 1.5) : Math.min(devicePixelRatio, 2));
+    this.renderer.shadowMap.enabled = !isMobile;
+    if (!isMobile) this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    // 光照
+    this.sun = new THREE.DirectionalLight(0xffffff, 1.1);
+    this.sun.position.set(80, 120, 50);
+    this.sun.castShadow = true;
+    this.sun.shadow.mapSize.set(2048, 2048);
+    const s = 200;
+    this.sun.shadow.camera.left = -s; this.sun.shadow.camera.right = s;
+    this.sun.shadow.camera.top = s; this.sun.shadow.camera.bottom = -s;
+    this.sun.shadow.camera.far = 400;
+    this.scene.add(this.sun);
+    this.scene.add(new THREE.AmbientLight(0x6688aa, 0.5));
+    this.scene.add(new THREE.HemisphereLight(0xbbddee, 0x334422, 0.4));
+
+    // 天空渐变背景
+    this.scene.background = this.makeSkyTexture();
+
+    Track.generate();
+    Track.build(this.scene);
+
+    // 玩家车
+    this.player = this.buildCar(true);
+    this.scene.add(this.player.mesh);
+    // AI 车
+    this.aiCars = [];
+    for (let i = 0; i < CFG.aiCount; i++) {
+      const ai = this.buildCar(false);
+      this.scene.add(ai.mesh);
+      this.aiCars.push(ai);
+    }
+
+    this.resetCars();
+    // 第三人称视角，不建座舱
+    window.addEventListener('resize', () => this.onResize());
+  },
+  makeSkyTexture() {
+    const c = document.createElement('canvas'); c.width = 4; c.height = 256;
+    const ctx = c.getContext('2d');
+    const g = ctx.createLinearGradient(0,0,0,256);
+    g.addColorStop(0, '#1a3a6a'); g.addColorStop(0.4, '#5a8acc');
+    g.addColorStop(0.7, '#aaccee'); g.addColorStop(1, '#ddeeff');
+    ctx.fillStyle = g; ctx.fillRect(0,0,4,256);
+    const t = new THREE.CanvasTexture(c);
+    return t;
+  },
+  buildCar(isPlayer) {
+    const v = createVehicle(isPlayer);
+    const g = new THREE.Group();
+    // 车身主色
+    const bodyMat = new THREE.MeshStandardMaterial({ color: v.color, metalness: 0.7, roughness: 0.25 });
+    const darkMat  = new THREE.MeshStandardMaterial({ color: 0x1a1a1f, metalness: 0.3, roughness: 0.5 });
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x1a2a3a, metalness: 0.4, roughness: 0.1, transparent: true, opacity: 0.8 });
+
+    // —— 底盘（低趴宽体）——
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.35, 4.2), darkMat);
+    chassis.position.y = 0.32; chassis.castShadow = true; g.add(chassis);
+
+    // —— 车身主体（中部高，前后略低）——
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.55, 3.6), bodyMat);
+    body.position.set(0, 0.62, 0); body.castShadow = true; g.add(body);
+
+    // —— 前鼻（收窄，营造车头指向感）——
+    const nose = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.42, 0.9), bodyMat);
+    nose.position.set(0, 0.55, 2.15); g.add(nose);
+
+    // —— 前唇（前铲）——
+    const splitter = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.08, 0.35), darkMat);
+    splitter.position.set(0, 0.22, 2.35); g.add(splitter);
+
+    // —— 后厢（略高，集成尾翼基座）——
+    const rear = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.48, 0.7), bodyMat);
+    rear.position.set(0, 0.68, -1.95); g.add(rear);
+
+    // —— 座舱（溜背式，玻璃感）——
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.52, 1.7), glassMat);
+    cabin.position.set(0, 1.1, -0.15); g.add(cabin);
+
+    // —— 前挡风（倾斜，用薄盒旋转模拟）——
+    const windshield = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.55, 0.08), glassMat);
+    windshield.position.set(0, 1.0, 0.75);
+    windshield.rotation.x = -0.45; g.add(windshield);
+
+    // —— 后挡风 ——
+    const rearWin = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.4, 0.08), glassMat);
+    rearWin.position.set(0, 1.05, -0.95);
+    rearWin.rotation.x = 0.5; g.add(rearWin);
+
+    // —— 尾翼 ——
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.08, 0.4), bodyMat);
+    wing.position.set(0, 1.35, -2.0); g.add(wing);
+    const wingSupport = new THREE.BoxGeometry(0.08, 0.3, 0.3);
+    const ws1 = new THREE.Mesh(wingSupport, darkMat); ws1.position.set(-0.6, 1.2, -2.0); g.add(ws1);
+    const ws2 = new THREE.Mesh(wingSupport, darkMat); ws2.position.set(0.6, 1.2, -2.0); g.add(ws2);
+
+    // —— 侧裙 ——
+    const skirtGeo = new THREE.BoxGeometry(0.08, 0.12, 3.0);
+    const skirtL = new THREE.Mesh(skirtGeo, darkMat); skirtL.position.set(-1.0, 0.28, 0); g.add(skirtL);
+    const skirtR = new THREE.Mesh(skirtGeo, darkMat); skirtR.position.set(1.0, 0.28, 0); g.add(skirtR);
+
+    // —— 后视镜 ——
+    const mirrorGeo = new THREE.BoxGeometry(0.22, 0.14, 0.18);
+    const mirL = new THREE.Mesh(mirrorGeo, bodyMat); mirL.position.set(-1.05, 1.0, 0.6); g.add(mirL);
+    const mirR = new THREE.Mesh(mirrorGeo, bodyMat); mirR.position.set(1.05, 1.0, 0.6); g.add(mirR);
+
+    // —— 前大灯（细长锐利）——
+    const headlightMat = new THREE.MeshStandardMaterial({ color: 0xffffee, emissive: 0xffffaa, emissiveIntensity: 0.9 });
+    const hl1 = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.12, 0.08), headlightMat);
+    hl1.position.set(-0.6, 0.6, 2.58); g.add(hl1);
+    const hl2 = hl1.clone(); hl2.position.x = 0.6; g.add(hl2);
+
+    // —— 尾灯（贯穿式红光带）——
+    const tailMat = new THREE.MeshStandardMaterial({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 0.7 });
+    const tailBar = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.1, 0.06), tailMat);
+    tailBar.position.set(0, 0.78, -2.32); g.add(tailBar);
+
+    // —— 轮子 ——
+    const wg = new THREE.CylinderGeometry(0.42, 0.42, 0.32, 16);
+    const wm = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.85 });
+    const rimMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8, roughness: 0.3 });
+    const rimGeo = new THREE.CylinderGeometry(0.22, 0.22, 0.34, 8);
+    const wp = [[-1.05,0.42,1.4],[1.05,0.42,1.4],[-1.05,0.42,-1.4],[1.05,0.42,-1.4]];
+    const ws = [];
+    wp.forEach((p,i) => {
+      const w = new THREE.Mesh(wg, wm);
+      w.rotation.z = Math.PI/2;
+      w.position.set(...p); w.castShadow = true; g.add(w);
+      // 轮毂
+      const rim = new THREE.Mesh(rimGeo, rimMat);
+      rim.rotation.z = Math.PI/2;
+      rim.position.set(...p); g.add(rim);
+      ws.push(w);
+    });
+    v.mesh = g;
+    v.wheelFL = ws[0]; v.wheelFR = ws[1]; v.wheelRL = ws[2]; v.wheelRR = ws[3];
+    return v;
+  },
+  buildCockpit() {
+    // 驾驶舱：方向盘 + 仪表板（仅玩家）
+    this.cockpit = new THREE.Group();
+    // 仪表板（相机前方偏下，缩小尺寸减少遮挡）
+    const dash = new THREE.Mesh(
+      new THREE.BoxGeometry(2.2, 0.32, 0.5),
+      new THREE.MeshStandardMaterial({ color: 0x1a1a1f, roughness: 0.6 })
+    );
+    dash.position.set(0, -0.8, -1.0);
+    this.cockpit.add(dash);
+    // 方向盘（缩小半径，下移并前移，减少遮挡前方视线）
+    const wheelGroup = new THREE.Group();
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.16, 0.028, 10, 28),
+      new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5 })
+    );
+    wheelGroup.add(ring);
+    const hub = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, 0.04, 0.07, 12),
+      new THREE.MeshStandardMaterial({ color: 0x00aacc })
+    );
+    hub.rotation.x = Math.PI/2;
+    wheelGroup.add(hub);
+    // 辐条
+    for (let i = 0; i < 3; i++) {
+      const sp = new THREE.Mesh(
+        new THREE.BoxGeometry(0.13, 0.018, 0.018),
+        new THREE.MeshStandardMaterial({ color: 0x333333 })
+      );
+      sp.rotation.z = (i * Math.PI*2)/3;
+      wheelGroup.add(sp);
+    }
+    wheelGroup.position.set(0, -0.62, -0.75);
+    wheelGroup.rotation.x = -0.35;
+    this.cockpit.add(wheelGroup);
+    this.steeringWheel = wheelGroup;
+
+    // A柱 / 挡风玻璃框（两侧，暗示视野边界，不穿模）
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0d });
+    const lp = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.85, 0.07), pillarMat);
+    lp.position.set(-0.85, 0.2, -0.35); lp.rotation.z = 0.12;
+    this.cockpit.add(lp);
+    const rp = lp.clone(); rp.position.x = 0.85; rp.rotation.z = -0.12;
+    this.cockpit.add(rp);
+
+    // 座舱组挂在相机下，本地坐标即相对驾驶员眼位
+    this.cockpit.position.set(0, 0, 0);
+    this.camera.add(this.cockpit);
+    this.scene.add(this.camera);
+  },
+  resetCars() {
+    const cars = [this.player, ...this.aiCars];
+    cars.forEach((v, i) => {
+      const offset = i * 5;
+      const t = -offset / 200; // 起始错位
+      const p = Track.curve.getPoint(0);
+      const tan = Track.curve.getTangent(0);
+      const len = Math.hypot(tan.x, tan.z);
+      const nx = -tan.z/len, nz = tan.x/len;
+      // 并排错位
+      const lane = (i % 2 === 0 ? -1 : 1) * 3;
+      v.pos.set(p.x + nx*lane - tan.x*offset*0.3, 0, p.z + nz*lane - tan.z*offset*0.3);
+      v.heading = Track.startDir;
+      v.vel.set(0,0,0);
+      v.steer = 0; v.roll = 0; v.pitch = 0;
+      v.lap = 0; v.progress = 0; v.lastT = null;
+      v.lapTime = 0; v.bestLap = Infinity; v.finished = false;
+    });
+  },
+  onResize() {
+    this.camera.aspect = innerWidth/innerHeight;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(innerWidth, innerHeight);
+  },
+  updateCamera(dt) {
+    const v = this.player;
+    // 第三人称跟随相机：车后方 + 高处，看向车头前方
+    const fwd = new THREE.Vector3(Math.sin(v.heading), 0, Math.cos(v.heading));
+    const camOffset = new THREE.Vector3(-fwd.x * 9, 6.5, -fwd.z * 9); // 后方9米、高6.5米
+    const targetPos = new THREE.Vector3(
+      v.pos.x + camOffset.x,
+      v.pos.y + camOffset.y,
+      v.pos.z + camOffset.z
+    );
+    this.camera.position.lerp(targetPos, Math.min(1, dt * 6));
+    // 看向车头前方一点
+    const lookAt = new THREE.Vector3(
+      v.pos.x + fwd.x * 6,
+      v.pos.y + 1.0,
+      v.pos.z + fwd.z * 6
+    );
+    this.camera.lookAt(lookAt);
+    // 速度感 FOV
+    const speed = v.vel.length();
+    const targetFov = 65 + (speed / CFG.maxSpeed) * CFG.speedLinesFOV * 15;
+    this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, 0.1);
+    this.camera.updateProjectionMatrix();
+    // 太阳光跟随
+    this.sun.position.set(v.pos.x + 80, 120, v.pos.z + 50);
+    this.sun.target.position.copy(v.pos);
+  },
+  syncVisuals() {
+    const cars = [this.player, ...this.aiCars];
+    cars.forEach(v => {
+      v.mesh.position.copy(v.pos);
+      v.mesh.rotation.order = 'YXZ';
+      v.mesh.rotation.y = v.heading;
+      v.mesh.rotation.z = v.roll;
+      v.mesh.rotation.x = v.pitch;
+      // 轮子旋转
+      [v.wheelFL, v.wheelFR, v.wheelRL, v.wheelRR].forEach(w => {
+        if (w) w.rotation.x = v.wheelSpin;
+      });
+      // 前轮转向
+      if (v.wheelFL) v.wheelFL.rotation.y = v.steer;
+      if (v.wheelFR) v.wheelFR.rotation.y = v.steer;
+    });
   }
-  camera.position.copy(camPos);
-  camera.lookAt(camLook);
+};
+
+/* ============================ 8. GAME LOGIC ============================ */
+const Game = {
+  state: 'menu', // menu/countdown/racing/paused/finished
+  time: 0, lapTime: 0, bestLap: Infinity,
+  cdTimer: 0, cdStep: 3,
+  allCars: [],
+  init() {
+    Render.init();
+    Input.init();
+    Audio.init();
+    this.allCars = [Render.player, ...Render.aiCars];
+    // UI 绑定
+    document.getElementById('btn-start').onclick = () => this.startRace();
+    document.getElementById('btn-resume').onclick = () => this.togglePause();
+    document.getElementById('btn-restart').onclick = () => this.restart();
+    document.getElementById('btn-menu').onclick = () => this.toMenu();
+    document.getElementById('btn-again').onclick = () => this.restart();
+    document.getElementById('btn-home').onclick = () => this.toMenu();
+    document.getElementById('lap-total').textContent = CFG.totalLaps;
+    document.getElementById('rank-total').textContent = this.allCars.length;
+  },
+  startRace() {
+    Audio.resume();
+    this.state = 'countdown';
+    this.cdTimer = 0; this.cdStep = 3;
+    document.getElementById('menu-start').classList.remove('active');
+    document.getElementById('countdown').classList.add('active');
+    Render.resetCars();
+    this.time = 0; this.lapTime = 0; this.bestLap = Infinity;
+    document.getElementById('hud').classList.add('active');
+  },
+  restart() {
+    document.getElementById('menu-finish').classList.remove('active');
+    document.getElementById('menu-pause').classList.remove('active');
+    this.startRace();
+  },
+  toMenu() {
+    this.state = 'menu';
+    document.getElementById('menu-finish').classList.remove('active');
+    document.getElementById('menu-pause').classList.remove('active');
+    document.getElementById('hud').classList.remove('active');
+    document.getElementById('menu-start').classList.add('active');
+  },
+  togglePause() {
+    if (this.state === 'racing') {
+      this.state = 'paused';
+      document.getElementById('menu-pause').classList.add('active');
+    } else if (this.state === 'paused') {
+      this.state = 'racing';
+      document.getElementById('menu-pause').classList.remove('active');
+    }
+  },
+  finishRace() {
+    this.state = 'finished';
+    const rank = this.currentRank();
+    document.getElementById('final-rank').textContent = rank + ' / ' + this.allCars.length;
+    document.getElementById('final-time').textContent = fmtTime(this.time);
+    document.getElementById('final-best').textContent = this.bestLap === Infinity ? '--:--.--' : fmtTime(this.bestLap);
+    document.getElementById('finish-title').textContent =
+      rank === 1 ? '🏆 冠 军！' : (rank === 2 ? '🥈 亚 军' : (rank === 3 ? '🥉 季 军' : '比 赛 结 束'));
+    document.getElementById('menu-finish').classList.add('active');
+  },
+  // 圈数检测：前进方向从赛道末端(t≈1)跨到起点(t≈0)即完成一圈
+  updateLaps(v, dt) {
+    const near = closestPointOnTrack(v.pos);
+    const t = near.t;
+    const forward = v.vel.dot(near.tangent); // >0 表示沿赛道前进
+    const prevT = v.lastT ?? t;
+    v.lastT = t;
+    // 前进方向经过起点线（t 从 >0.8 跳到 <0.2）
+    if (forward > 0 && prevT > 0.8 && t < 0.2) {
+      if (v.lapTime > 8) { // 防起步误触
+        v.lap++;
+        if (v.lapTime < v.bestLap) v.bestLap = v.lapTime;
+        if (v.isPlayer && v.bestLap < this.bestLap) this.bestLap = v.bestLap;
+        v.lapTime = 0;
+        if (v.isPlayer && v.lap >= CFG.totalLaps) {
+          v.finished = true; v.finishTime = this.time;
+        }
+      }
+    }
+    v.lapTime += dt;
+    v.progress = t + v.lap;
+  },
+  currentRank() {
+    const sorted = [...this.allCars].sort((a,b) => {
+      if (a.finished && b.finished) return a.finishTime - b.finishTime;
+      if (a.finished) return -1;
+      if (b.finished) return 1;
+      return b.progress - a.progress;
+    });
+    return sorted.indexOf(Render.player) + 1;
+  },
+  update(dt) {
+    if (this.state === 'countdown') {
+      this.cdTimer += dt;
+      const step = 3 - Math.floor(this.cdTimer);
+      if (step !== this.cdStep) {
+        this.cdStep = step;
+        const el = document.getElementById('cd-num');
+        if (step > 0) { el.textContent = step; el.style.animation = 'none'; void el.offsetWidth; el.style.animation = 'pop .8s ease-out'; }
+        else if (step === 0) { el.textContent = 'GO!'; el.style.color = '#00ff88'; el.style.animation = 'none'; void el.offsetWidth; el.style.animation='pop .8s ease-out'; }
+        else {
+          document.getElementById('countdown').classList.remove('active');
+          this.state = 'racing';
+        }
+      }
+      return;
+    }
+    if (this.state !== 'racing') return;
+
+    this.time += dt;
+    this.lapTime += dt;
+    Input.update(dt);
+
+    // 玩家：自动前进（油门恒为1），只操控左右转向躲避障碍
+    vehicleUpdate(Render.player, dt, {
+      steer: Input.steer, gas: 0.5, brake: Input.brake, handbrake: Input.handbrake
+    }, false);
+    this.updateLaps(Render.player, dt);
+
+    // AI
+    Render.aiCars.forEach((v, i) => {
+      if (!v.finished) {
+        AI.update(v, dt, CFG.aiSkill[i] || 0.85);
+        this.updateLaps(v, dt);
+      }
+    });
+
+    // 引擎声
+    const p = Render.player;
+    const rpm = Math.abs(p.vel.length()) / CFG.maxSpeed;
+    Audio.setEngine(rpm, 1);
+
+    // 结束判定
+    if (p.finished) this.finishRace();
+  }
+};
+
+/* ============================ 9. HUD ============================ */
+function fmtTime(t) {
+  if (t === Infinity || t == null) return '--:--.--';
+  const m = Math.floor(t/60);
+  const s = Math.floor(t%60);
+  const cs = Math.floor((t*100)%100);
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
 }
 
-// ===================== LOD 剔除 =====================
-function updateLOD(){
-  if(!carBody) return;
-  const cp = carBody.position;
-  sceneryMeshes.forEach(m=>{
-    const dist = m.position.distanceTo(cp);
-    m.visible = dist < 300;
+function drawMinimap() {
+  const c = document.getElementById('minimap');
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0,0,280,280);
+  ctx.fillStyle = 'rgba(0,30,40,0.6)';
+  ctx.fillRect(0,0,280,280);
+  // 赛道轮廓
+  ctx.strokeStyle = 'rgba(0,220,255,0.7)';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  const pts = Track.points;
+  const cx = 140, cy = 140, scale = 0.7;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    const x = cx + p.x*scale, y = cy + p.z*scale;
+    if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.closePath(); ctx.stroke();
+  // 起终点
+  const sp = pts[0];
+  ctx.fillStyle = '#ff3344';
+  ctx.beginPath(); ctx.arc(cx+sp.x*scale, cy+sp.z*scale, 4, 0, Math.PI*2); ctx.fill();
+  // 车辆
+  Game.allCars.forEach((v, i) => {
+    ctx.fillStyle = v.isPlayer ? '#00ff88' : (i===1 ? '#ffaa00' : '#ff4488');
+    ctx.beginPath();
+    ctx.arc(cx + v.pos.x*scale, cy + v.pos.z*scale, v.isPlayer?5:4, 0, Math.PI*2);
+    ctx.fill();
   });
 }
 
-// ===================== HUD =====================
-let mmCached = null; // 缓存小地图静态画面
-function updateHUD(){
-  let speedKmh = 0;
-  if(carBody){
-    const fwd = getCarForward();
-    const fwdSpeed = carBody.velocity.x*fwd.x + carBody.velocity.z*fwd.z;
-    speedKmh = Math.floor(Math.abs(fwdSpeed)*3.6);
-  }
-  document.getElementById('speed-val').textContent = speedKmh;
-  document.getElementById('dist').textContent = distance;
-  document.getElementById('timer').textContent = raceTime.toFixed(1);
-  document.getElementById('progress').textContent = Math.floor(trackProgress*100)+'%';
-  document.getElementById('best').textContent = bestTimes[currentTheme?.name] || '--';
+function updateHUD() {
+  if (Game.state !== 'racing' && Game.state !== 'paused') return;
+  const p = Render.player;
+  const speedKmh = Math.abs(p.vel.length()) * 3.6;
+  document.getElementById('speed-val').textContent = Math.round(speedKmh);
+  // 挡位
+  const gear = speedKmh < 1 ? 'N' : (speedKmh < 40 ? '1' : speedKmh < 90 ? '2' : speedKmh < 150 ? '3' : speedKmh < 210 ? '4' : '5');
+  document.getElementById('gear').textContent = gear;
+  document.getElementById('lap-cur').textContent = Math.min(p.lap+1, CFG.totalLaps);
+  document.getElementById('lap-time').textContent = fmtTime(p.lapTime);
+  document.getElementById('best-lap').textContent = Game.bestLap === Infinity ? '--:--.--' : fmtTime(Game.bestLap);
+  document.getElementById('race-time').textContent = fmtTime(Game.time);
+  document.getElementById('rank-cur').textContent = Game.currentRank();
   drawMinimap();
 }
 
-// 构建小地图静态缓存（赛道线+终点）
-function buildMinimapCache(){
-  const canvas = document.getElementById('mm'); if(!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const w=canvas.width, h=canvas.height;
-  ctx.clearRect(0,0,w,h);
-  ctx.fillStyle='rgba(0,10,20,0.8)'; ctx.fillRect(0,0,w,h);
-  const pts=trackCurve.getSpacedPoints(120);
-  let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;
-  pts.forEach(p=>{minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minZ=Math.min(minZ,p.z);maxZ=Math.max(maxZ,p.z)});
-  const scale=Math.min(w/(maxX-minX),h/(maxZ-minZ))*0.85;
-  const ox=(w-(maxX-minX)*scale)/2-minX*scale, oz=(h-(maxZ-minZ)*scale)/2-minZ*scale;
-  ctx.strokeStyle='#'+currentTheme.accent.toString(16).padStart(6,'0'); ctx.lineWidth=4; ctx.beginPath();
-  pts.forEach((p,i)=>{const x=p.x*scale+ox,y=p.z*scale+oz; if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)}); ctx.stroke();
-  const fp=trackCurve.getPointAt(0.99); ctx.fillStyle='#ffff00'; ctx.fillRect(fp.x*scale+ox-3,fp.z*scale+oz-3,6,6);
-  // 保存静态图层为 ImageData
-  mmCached = ctx.getImageData(0,0,w,h);
-  mmCached.scale = scale; mmCached.ox = ox; mmCached.oz = oz;
-}
+/* ============================ 10. MAIN LOOP ============================ */
+let last = performance.now();
+let acc = 0;
+const FIXED_DT = 1 / CFG.physicsHz;
 
-function drawMinimap(){
-  const canvas = document.getElementById('mm'); if(!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const w=canvas.width, h=canvas.height;
-  if(!mmCached){ buildMinimapCache(); if(!mmCached) return; }
-  // 恢复静态图层
-  ctx.putImageData(mmCached, 0, 0);
-  // 动态：障碍物
-  ctx.fillStyle='#ff4444';
-  obstacles.forEach(o=>{if(!o.active)return; ctx.beginPath(); ctx.arc(o.pos.x*mmCached.scale+mmCached.ox,o.pos.z*mmCached.scale+mmCached.oz,2,0,Math.PI*2); ctx.fill()});
-  // 动态：玩家
-  if(carBody){ctx.fillStyle='#00ff88'; ctx.beginPath(); ctx.arc(carBody.position.x*mmCached.scale+mmCached.ox,carBody.position.z*mmCached.scale+mmCached.oz,4,0,Math.PI*2); ctx.fill()}
-}
+function loop(now) {
+  requestAnimationFrame(loop);
+  let dt = (now - last) / 1000;
+  last = now;
+  if (dt > 0.1) dt = 0.1; // 防卡顿大跳
 
-function finishRace(){
-  gameState='finished'; stopMusic();
-  if(engineSound){try{engineSound.osc.stop()}catch(e){} engineSound=null}
-  const name=currentTheme.name;
-  if(!bestTimes[name] || raceTime < parseFloat(bestTimes[name])) bestTimes[name]=raceTime.toFixed(1);
-  document.getElementById('r-dist').textContent=distance+' m';
-  document.getElementById('r-time').textContent=raceTime.toFixed(1)+' s';
-  document.getElementById('r-speed').textContent=Math.floor(maxSpeedReached*3.6)+' km/h';
-  document.getElementById('result').classList.add('active');
-}
-
-// ===================== 主循环 =====================
-const FIXED_DT = 1/60;
-let physicsAcc = 0;
-function animate(){
-  requestAnimationFrame(animate);
-  if(!renderer) return;
-  const dt = Math.min(clock.getDelta(), 0.05);
-
-  if(gameState==='racing' && world){
-    raceTime += dt;
-    physicsAcc += dt;
-    while(physicsAcc >= FIXED_DT){
-      world.step(FIXED_DT);
-      physicsAcc -= FIXED_DT;
-    }
-    updateCarPhysics(dt);
-    updateAI(dt);
-    updateHUD();
+  // 固定步长物理
+  acc += dt;
+  while (acc >= FIXED_DT) {
+    Game.update(FIXED_DT);
+    acc -= FIXED_DT;
   }
-  updateParticles(dt);
-  if(carBody) updateCamera(dt);
-  renderer.render(scene, camera);
+
+  Render.updateCamera(dt);
+  Render.syncVisuals();
+  updateHUD();
+  Render.renderer.render(Render.scene, Render.camera);
 }
 
-// ===================== 输入 =====================
-function setupInput(){
-  addEventListener('keydown', e=>{
-    if(e.key==='a'||e.key==='A'||e.key==='ArrowLeft') input.left=true;
-    if(e.key==='d'||e.key==='D'||e.key==='ArrowRight') input.right=true;
-    if(e.key==='w'||e.key==='W'||e.key==='ArrowUp') input.gas=true;
-    if(e.key==='s'||e.key==='S'||e.key==='ArrowDown') input.brake=true;
-    if(e.key==='c'||e.key==='C') toggleCamera();
-    if(e.key==='Escape'){ if(gameState==='racing') pauseGame(); else if(gameState==='paused') resumeGame(); }
-  });
-  addEventListener('keyup', e=>{
-    if(e.key==='a'||e.key==='A'||e.key==='ArrowLeft') input.left=false;
-    if(e.key==='d'||e.key==='D'||e.key==='ArrowRight') input.right=false;
-    if(e.key==='w'||e.key==='W'||e.key==='ArrowUp') input.gas=true;
-    if(e.key==='s'||e.key==='S'||e.key==='ArrowDown') input.brake=false;
-  });
-  document.querySelectorAll('.t-btn').forEach(btn=>{
-    const k=btn.dataset.k;
-    const on=e=>{e.preventDefault(); input[k]=true};
-    const off=e=>{e.preventDefault(); input[k]=false};
-    btn.addEventListener('touchstart', on, {passive:false});
-    btn.addEventListener('touchend', off, {passive:false});
-    btn.addEventListener('touchcancel', off, {passive:false});
-  });
-}
-
-function toggleCamera(){
-  cameraMode = cameraMode===3 ? 1 : 3;
-  document.getElementById('cam-btn').textContent = cameraMode===1 ? '视角: 车内 [C]' : '视角: 追尾 [C]';
-}
-function pauseGame(){
-  if(gameState!=='racing') return;
-  gameState='paused';
-  document.getElementById('pause').classList.add('active');
-  if(musicOn && audioCtx) audioCtx.suspend();
-}
-function resumeGame(){
-  if(gameState!=='paused') return;
-  gameState='racing';
-  document.getElementById('pause').classList.remove('active');
-  if(musicOn && audioCtx) audioCtx.resume();
-}
-function backToMenu(){
-  gameState='menu'; stopMusic();
-  if(engineSound){try{engineSound.osc.stop()}catch(e){} engineSound=null}
-  if(carBody){world.removeBody(carBody); carBody=null}
-  if(carMesh){scene.remove(carMesh); carMesh=null}
-  aiCars.forEach(a=>{ if(worldGroup) worldGroup.remove(a.mesh) }); aiCars=[];
-  obstacles.forEach(o=>{ if(o.body) world.removeBody(o.body) }); obstacles=[];
-  wallBodies.forEach(b=>world.removeBody(b)); wallBodies=[];
-  if(worldGroup){scene.remove(worldGroup); worldGroup=null}
-  sceneryMeshes=[];
-  particleSystems.forEach(p=>scene.remove(p.mesh)); particleSystems=[];
-  mmCached = null;
-  document.getElementById('pause').classList.remove('active');
-  document.getElementById('result').classList.remove('active');
-  document.getElementById('hud').classList.remove('active');
-  document.getElementById('countdown').classList.remove('active');
-  document.getElementById('menu').classList.add('active');
-}
-
-// ===================== 菜单 =====================
-function buildMenu(){
-  const grid=document.getElementById('map-grid'); grid.innerHTML='';
-  Object.entries(MAP_THEMES).forEach(([key,theme])=>{
-    const wrap=document.createElement('div'); wrap.className='map-card-wrap';
-    wrap.innerHTML=`<div class="map-thumb" style="background:linear-gradient(135deg,#${theme.sky.toString(16).padStart(6,'0')},#${theme.accent.toString(16).padStart(6,'0')})">${theme.icon}</div><div class="map-info"><h3>${theme.name}</h3><p>${theme.desc}</p></div>`;
-    wrap.onclick=()=>{
-      document.querySelectorAll('.map-card-wrap').forEach(c=>c.classList.remove('selected'));
-      wrap.classList.add('selected'); selectedMap=key;
-      document.getElementById('start-btn').disabled=false;
-    };
-    grid.appendChild(wrap);
-  });
-  document.getElementById('start-btn').onclick=()=>{ if(selectedMap) startRace(selectedMap) };
-  document.getElementById('retry-btn').onclick=()=>{ if(selectedMap) startRace(selectedMap) };
-  document.getElementById('menu-btn').onclick=backToMenu;
-  document.getElementById('cam-btn').onclick=toggleCamera;
-  document.getElementById('music-btn').onclick=toggleMusic;
-  document.getElementById('pause-btn').onclick=pauseGame;
-  document.getElementById('resume-btn').onclick=resumeGame;
-  document.getElementById('back-menu-btn').onclick=backToMenu;
-}
-
-function toggleMusic(){
-  musicOn=!musicOn;
-  document.getElementById('music-btn').textContent=musicOn?'♪ 音乐 开':'♪ 音乐 关';
-  if(gameState==='racing'){ if(musicOn) startMusic(); else stopMusic() }
-}
-
-// ===================== 启动 =====================
-try {
-  initScene();
-} catch(e){
-  console.warn('WebGL 初始化失败，游戏无法运行：', e.message);
-}
-try { initPhysics(); } catch(e){ console.warn('物理初始化失败', e); }
-setupInput();
-buildMenu();
-animate();
+// 启动
+window.addEventListener('load', () => {
+  Game.init();
+  requestAnimationFrame(loop);
+});
 </script>
 </body>
 </html>
