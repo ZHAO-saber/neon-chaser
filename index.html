@@ -1092,7 +1092,15 @@ function updateCarPhysics(dt){
 
   updateEngineSound(Math.abs(fwdSpeed));
 
-  trackProgress = findNearestT(carBody.position);
+  // 进度计算：限制单帧跳变，防止 off-track 时进度误跳导致提前完赛
+  const rawT = findNearestT(carBody.position);
+  const maxDelta = 0.015; // 单帧进度最大变化量
+  if(Math.abs(rawT - trackProgress) < maxDelta){
+    trackProgress = rawT;
+  } else {
+    // 跳变过大时按方向渐进，避免瞬间跨越终点
+    trackProgress += Math.sign(rawT - trackProgress) * maxDelta;
+  }
   distance = Math.floor(trackProgress * trackLength);
 
   // 障碍物碰撞
@@ -1118,7 +1126,12 @@ function updateCarPhysics(dt){
     }
   }
 
-  if(trackProgress >= 0.99) finishRace();
+  // 完赛判定：进度达标 且 物理上靠近终点（双重校验，杜绝误触发）
+  if(trackProgress >= 0.985){
+    const finishP = trackCurve.getPointAt(0.99);
+    const dFinish = Math.hypot(carBody.position.x-finishP.x, carBody.position.z-finishP.z);
+    if(dFinish < 25) finishRace();
+  }
 }
 
 function findNearestT(pos){
