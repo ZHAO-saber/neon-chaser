@@ -772,7 +772,7 @@ function vehicleUpdate(v, dt, input, isAI) {
     v.pos.addScaledVector(v.vel, sdt);
 
     // 护栏碰撞（边界贴近护栏内侧，避免视觉穿模）
-    const near = closestPointOnTrack(v.pos);
+    const near = closestPointOnTrack(v.pos, v.lastT);
     const dist = v.pos.distanceTo(near.point);
     const boundary = CFG.trackWidth / 2 - 1.6;
     if (dist > boundary) {
@@ -844,12 +844,22 @@ function vehicleUpdate(v, dt, input, isAI) {
 }
 
 // 找车辆在赛道上的最近点（用于碰撞+进度）
-function closestPointOnTrack(pos) {
+// hintT: 上一帧进度，传入时只搜索附近 ±searchRange 段，性能从 O(seg) 降到 O(searchRange)
+function closestPointOnTrack(pos, hintT) {
   const seg = CFG.trackSegments;
   let best = Infinity, bestPt = null, bestT = 0, bestTan = null;
-  // 粗搜 + 精搜：每段线性近似
-  for (let i = 0; i < seg; i++) {
-    const a = Track.points[i], b = Track.points[(i+1)%seg];
+  const searchRange = 18; // 每帧最多搜索 36 段（±18），覆盖高速位移
+  let start, end;
+  if (hintT != null) {
+    const center = Math.floor(hintT * seg);
+    start = center - searchRange;
+    end = center + searchRange;
+  } else {
+    start = 0; end = seg;
+  }
+  for (let i = start; i < end; i++) {
+    const idx = ((i % seg) + seg) % seg;
+    const a = Track.points[idx], b = Track.points[(idx+1)%seg];
     const abx = b.x-a.x, abz = b.z-a.z;
     const apx = pos.x-a.x, apz = pos.z-a.z;
     const ab2 = abx*abx+abz*abz || 1;
@@ -858,7 +868,7 @@ function closestPointOnTrack(pos) {
     const px = a.x + abx*t, pz = a.z + abz*t;
     const dx = pos.x-px, dz = pos.z-pz;
     const d2 = dx*dx+dz*dz;
-    if (d2 < best) { best = d2; bestPt = new THREE.Vector3(px, 0, pz); bestT = (i+t)/seg;
+    if (d2 < best) { best = d2; bestPt = new THREE.Vector3(px, 0, pz); bestT = (idx+t)/seg;
       bestTan = new THREE.Vector3(abx, 0, abz).normalize(); }
   }
   return { point: bestPt, t: bestT, tangent: bestTan };
@@ -868,7 +878,7 @@ function closestPointOnTrack(pos) {
 const AI = {
   update(v, dt, skill) {
     // 找到前方目标点
-    const near = closestPointOnTrack(v.pos);
+    const near = closestPointOnTrack(v.pos, v.lastT);
     const lookAhead = 0.015 + (v.vel.length()/CFG.maxSpeed)*0.04;
     const targetT = (near.t + lookAhead) % 1;
     const target = Track.curve.getPoint(targetT);
@@ -929,7 +939,7 @@ const Render = {
     }
     this.renderer.setSize(innerWidth, innerHeight);
     const isMobile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-    this.renderer.setPixelRatio(isMobile ? Math.min(devicePixelRatio, 1.5) : Math.min(devicePixelRatio, 2));
+    this.renderer.setPixelRatio(isMobile ? Math.min(devicePixelRatio, 1.5) : Math.min(devicePixelRatio, 1.5));
     this.renderer.shadowMap.enabled = !isMobile;
     if (!isMobile) this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -937,7 +947,7 @@ const Render = {
     this.sun = new THREE.DirectionalLight(0xffffff, 1.1);
     this.sun.position.set(80, 120, 50);
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.shadow.mapSize.set(1024, 1024);
     const s = 200;
     this.sun.shadow.camera.left = -s; this.sun.shadow.camera.right = s;
     this.sun.shadow.camera.top = s; this.sun.shadow.camera.bottom = -s;
@@ -1252,7 +1262,7 @@ const Game = {
   },
   // 圈数检测：前进方向从赛道末端(t≈1)跨到起点(t≈0)即完成一圈
   updateLaps(v, dt) {
-    const near = closestPointOnTrack(v.pos);
+    const near = closestPointOnTrack(v.pos, v.lastT);
     const t = near.t;
     const forward = v.vel.dot(near.tangent); // >0 表示沿赛道前进
     const prevT = v.lastT ?? t;
