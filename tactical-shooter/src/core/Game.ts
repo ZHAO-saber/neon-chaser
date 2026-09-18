@@ -114,10 +114,12 @@ export class Game {
       this.input.sensitivity = s.sensitivity;
       this.fovSetting = s.fov;
       this.audio.setVolume(s.volume);
+      this.renderer.setQuality(s.quality);
     };
     this.input.sensitivity = this.ui.settings.sensitivity;
     this.fovSetting = this.ui.settings.fov;
     this.audio.setVolume(this.ui.settings.volume);
+    this.renderer.setQuality(this.ui.settings.quality);
 
     this.setupCallbacks();
     this.setup();
@@ -276,6 +278,8 @@ export class Game {
     this.playerInvuln = 0;
     this.planting = false;
     this.defusing = false;
+    this.spectatorTarget = null;
+    this.freeSpectatorInit = false;
     // 重置武器弹药
     this.weapon.addWeapon('rifle');
     this.weapon.switchWeapon('rifle');
@@ -323,6 +327,73 @@ export class Game {
     this.playerAlive = false;
     this.playerDeaths++;
     this.audio.playHit();
+    // 退出鼠标锁定，方便观战操作
+    document.exitPointerLock();
+  }
+
+  /** 观战目标（存活的队友 Bot） */
+  private spectatorTarget: Bot | null = null;
+
+  /** 切换观战目标 */
+  private cycleSpectatorTarget(): void {
+    const teammates = this.aiSystem.getAllBots().filter(b => b.alive && b.team === this.playerTeam);
+    if (teammates.length === 0) {
+      this.spectatorTarget = null;
+      return;
+    }
+    if (!this.spectatorTarget || !this.spectatorTarget.alive) {
+      this.spectatorTarget = teammates[0];
+      return;
+    }
+    const idx = teammates.indexOf(this.spectatorTarget);
+    this.spectatorTarget = teammates[(idx + 1) % teammates.length];
+  }
+
+  /** 更新观战相机 */
+  private updateSpectatorCamera(dt: number): void {
+    // 鼠标控制观战视角旋转
+    const yaw = this.input.yaw;
+    const target = this.spectatorTarget;
+
+    if (target && target.alive) {
+      // 第三人称跟随目标
+      const offset = new THREE.Vector3(
+        Math.sin(yaw) * 4,
+        2.5,
+        Math.cos(yaw) * 4,
+      );
+      const camPos = new THREE.Vector3().copy(target.position).add(offset);
+      this.renderer.camera.position.lerp(camPos, Math.min(1, dt * 8));
+      this.renderer.camera.lookAt(target.position.x, target.position.y + 1, target.position.z);
+    } else {
+      // 无目标：自由飞行观战
+      this.updateFreeSpectator(dt);
+    }
+  }
+
+  /** 自由观战：WASD 飞行 */
+  private freeSpectatorPos: THREE.Vector3 = new THREE.Vector3();
+  private freeSpectatorInit = false;
+  private updateFreeSpectator(dt: number): void {
+    if (!this.freeSpectatorInit) {
+      this.freeSpectatorPos.copy(this.player.position);
+      this.freeSpectatorInit = true;
+    }
+    const yaw = this.input.yaw;
+    const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+    const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+    const speed = 15;
+    const input = this.input.getInput();
+    if (input.forward) this.freeSpectatorPos.addScaledVector(forward, speed * dt);
+    if (input.back) this.freeSpectatorPos.addScaledVector(forward, -speed * dt);
+    if (input.right) this.freeSpectatorPos.addScaledVector(right, speed * dt);
+    if (input.left) this.freeSpectatorPos.addScaledVector(right, -speed * dt);
+    if (input.jump) this.freeSpectatorPos.y += speed * dt;
+    if (input.crouch) this.freeSpectatorPos.y -= speed * dt;
+
+    this.renderer.camera.position.copy(this.freeSpectatorPos);
+    this.renderer.camera.rotation.y = yaw;
+    this.renderer.camera.rotation.x = this.input.pitch;
   }
 
   /** Bot 死亡：奖励金钱、计分 */
@@ -584,8 +655,11 @@ export class Game {
       // 脚步声
       this.updateFootstep(dt);
     } else {
-      // 玩家死亡：相机悬停在死亡位置
+      // 玩家死亡：观战模式
+      this.updateSpectatorCamera(dt);
       this.weaponView.update(dt);
+      // C 键切换观战目标
+      if (this.input.consumeKey('KeyC')) this.cycleSpectatorTarget();
     }
 
     // Bot AI 更新

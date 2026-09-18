@@ -1,0 +1,18 @@
+{
+  "name": "tactical-shooter-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx index.ts",
+    "dev": "tsx watch index.ts"
+  },
+  "dependencies": {
+    "colyseus": "^0.15.0",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  }
+}

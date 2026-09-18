@@ -1,9 +1,13 @@
 /** HUD：血量、弹药、准星、命中标记、设置面板 */
+import type { QualityLevel } from '../render/Renderer';
 
 export interface GameSettings {
   sensitivity: number;
   fov: number;
   volume: number;
+  quality: QualityLevel;
+  crosshairColor: string;
+  crosshairSize: number;
 }
 
 export class UISystem {
@@ -17,7 +21,14 @@ export class UISystem {
   private settingsVisible = false;
   onSettingsChange?: (s: GameSettings) => void;
 
-  settings: GameSettings = { sensitivity: 0.0022, fov: 90, volume: 0.7 };
+  settings: GameSettings = {
+    sensitivity: 0.0022,
+    fov: 90,
+    volume: 0.7,
+    quality: 'high',
+    crosshairColor: '#00ff44',
+    crosshairSize: 6,
+  };
 
   constructor() {
     this.container = document.createElement('div');
@@ -45,12 +56,7 @@ export class UISystem {
     // 准星
     this.crosshair = document.createElement('div');
     this.crosshair.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:20px;height:20px;';
-    this.crosshair.innerHTML = `
-      <div style="position:absolute;top:0;left:50%;width:2px;height:6px;background:#0f0;transform:translateX(-50%);"></div>
-      <div style="position:absolute;bottom:0;left:50%;width:2px;height:6px;background:#0f0;transform:translateX(-50%);"></div>
-      <div style="position:absolute;left:0;top:50%;width:6px;height:2px;background:#0f0;transform:translateY(-50%);"></div>
-      <div style="position:absolute;right:0;top:50%;width:6px;height:2px;background:#0f0;transform:translateY(-50%);"></div>
-    `;
+    this.renderCrosshair();
     this.container.appendChild(this.crosshair);
 
     // 命中标记
@@ -75,18 +81,30 @@ export class UISystem {
     });
   }
 
+  /** 根据设置重新渲染准星 */
+  private renderCrosshair(): void {
+    const color = this.settings.crosshairColor;
+    const s = this.settings.crosshairSize;
+    this.crosshair.innerHTML = `
+      <div style="position:absolute;top:0;left:50%;width:2px;height:${s}px;background:${color};transform:translateX(-50%);"></div>
+      <div style="position:absolute;bottom:0;left:50%;width:2px;height:${s}px;background:${color};transform:translateX(-50%);"></div>
+      <div style="position:absolute;left:0;top:50%;width:${s}px;height:2px;background:${color};transform:translateY(-50%);"></div>
+      <div style="position:absolute;right:0;top:50%;width:${s}px;height:2px;background:${color};transform:translateY(-50%);"></div>
+    `;
+  }
+
   private createSettingsPanel(): HTMLElement {
     const panel = document.createElement('div');
-    panel.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:360px;background:rgba(0,0,0,0.9);border:2px solid #444;padding:30px;border-radius:8px;font-family:monospace;color:#fff;z-index:30;display:none;pointer-events:auto;';
+    panel.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:400px;background:rgba(0,0,0,0.92);border:2px solid #444;padding:24px;border-radius:8px;font-family:monospace;color:#fff;z-index:30;display:none;pointer-events:auto;';
 
     const makeSlider = (label: string, min: number, max: number, step: number, val: number, onInput: (v: number) => void) => {
       const row = document.createElement('div');
-      row.style.cssText = 'margin-bottom:20px;';
+      row.style.cssText = 'margin-bottom:18px;';
       const lbl = document.createElement('div');
       lbl.style.cssText = 'margin-bottom:6px;font-size:14px;';
-      lbl.innerHTML = `${label}: `;
       const valSpan = document.createElement('span');
-      valSpan.textContent = val.toFixed(4);
+      valSpan.textContent = val.toFixed(step < 1 ? (step < 0.01 ? 4 : 2) : 0);
+      lbl.innerHTML = `${label}: `;
       lbl.appendChild(valSpan);
       row.appendChild(lbl);
       const slider = document.createElement('input');
@@ -98,7 +116,7 @@ export class UISystem {
       slider.style.cssText = 'width:100%;';
       slider.addEventListener('input', () => {
         const v = parseFloat(slider.value);
-        valSpan.textContent = v.toFixed(4);
+        valSpan.textContent = v.toFixed(step < 1 ? (step < 0.01 ? 4 : 2) : 0);
         onInput(v);
       });
       row.appendChild(slider);
@@ -106,15 +124,15 @@ export class UISystem {
     };
 
     const title = document.createElement('div');
-    title.style.cssText = 'font-size:20px;font-weight:bold;margin-bottom:20px;text-align:center;';
+    title.style.cssText = 'font-size:20px;font-weight:bold;margin-bottom:18px;text-align:center;';
     title.textContent = '设置';
     panel.appendChild(title);
 
-    panel.appendChild(makeSlider('灵敏度', 0.0005, 0.01, 0.0001, this.settings.sensitivity, (v) => {
+    panel.appendChild(makeSlider('鼠标灵敏度', 0.0005, 0.01, 0.0001, this.settings.sensitivity, (v) => {
       this.settings.sensitivity = v;
       this.onSettingsChange?.(this.settings);
     }));
-    panel.appendChild(makeSlider('视野角度', 60, 120, 1, this.settings.fov, (v) => {
+    panel.appendChild(makeSlider('视野角度 FOV', 60, 120, 1, this.settings.fov, (v) => {
       this.settings.fov = v;
       this.onSettingsChange?.(this.settings);
     }));
@@ -122,6 +140,60 @@ export class UISystem {
       this.settings.volume = v;
       this.onSettingsChange?.(this.settings);
     }));
+    panel.appendChild(makeSlider('准星大小', 2, 16, 1, this.settings.crosshairSize, (v) => {
+      this.settings.crosshairSize = v;
+      this.renderCrosshair();
+      this.onSettingsChange?.(this.settings);
+    }));
+
+    // 准星颜色选择
+    const colorRow = document.createElement('div');
+    colorRow.style.cssText = 'margin-bottom:18px;';
+    colorRow.innerHTML = '<div style="margin-bottom:6px;font-size:14px;">准星颜色</div>';
+    const colors = ['#00ff44', '#ff0000', '#00aaff', '#ffff00', '#ff00ff', '#ffffff'];
+    const colorBox = document.createElement('div');
+    colorBox.style.cssText = 'display:flex;gap:8px;';
+    colors.forEach(c => {
+      const btn = document.createElement('button');
+      btn.style.cssText = `width:28px;height:28px;background:${c};border:2px solid ${this.settings.crosshairColor === c ? '#fff' : '#555'};border-radius:4px;cursor:pointer;`;
+      btn.addEventListener('click', () => {
+        this.settings.crosshairColor = c;
+        this.renderCrosshair();
+        colorBox.querySelectorAll('button').forEach(b => (b as HTMLElement).style.borderColor = '#555');
+        btn.style.borderColor = '#fff';
+        this.onSettingsChange?.(this.settings);
+      });
+      colorBox.appendChild(btn);
+    });
+    colorRow.appendChild(colorBox);
+    panel.appendChild(colorRow);
+
+    // 画质选择
+    const qualityRow = document.createElement('div');
+    qualityRow.style.cssText = 'margin-bottom:18px;';
+    qualityRow.innerHTML = '<div style="margin-bottom:6px;font-size:14px;">画质</div>';
+    const qualities: QualityLevel[] = ['low', 'medium', 'high'];
+    const qualLabels: Record<QualityLevel, string> = { low: '低', medium: '中', high: '高' };
+    const qualBox = document.createElement('div');
+    qualBox.style.cssText = 'display:flex;gap:8px;';
+    qualities.forEach(q => {
+      const btn = document.createElement('button');
+      btn.textContent = qualLabels[q];
+      btn.style.cssText = `padding:6px 18px;font-family:monospace;font-size:13px;background:${this.settings.quality === q ? '#00ff44' : '#333'};color:${this.settings.quality === q ? '#000' : '#fff'};border:1px solid #555;border-radius:4px;cursor:pointer;`;
+      btn.addEventListener('click', () => {
+        this.settings.quality = q;
+        qualBox.querySelectorAll('button').forEach(b => {
+          (b as HTMLElement).style.background = '#333';
+          (b as HTMLElement).style.color = '#fff';
+        });
+        btn.style.background = '#00ff44';
+        btn.style.color = '#000';
+        this.onSettingsChange?.(this.settings);
+      });
+      qualBox.appendChild(btn);
+    });
+    qualityRow.appendChild(qualBox);
+    panel.appendChild(qualityRow);
 
     const closeBtn = document.createElement('button');
     closeBtn.textContent = '关闭 (ESC)';
