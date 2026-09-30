@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>像素机甲对战 - MECH BATTLE</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#0a0a12;color:#cfd0e0;font-family:'Press Start 2P',monospace}
+  body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px}
+  h1{font-size:14px;letter-spacing:2px;color:#ffd633;text-shadow:2px 2px 0 #000}
+  #wrap{position:relative;width:800px;max-width:100%;aspect-ratio:800/360;border:4px solid #2a2a3a;background:#000;image-rendering:pixelated;box-shadow:0 0 0 2px #000,0 0 24px #000 inset}
+  canvas{display:block;width:100%;height:100%;image-rendering:pixelated}
+  .overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(8,8,16,.86);text-align:center;padding:20px}
+  .overlay h2{font-size:18px;color:#fff;text-shadow:2px 2px 0 #000}
+  .overlay p{font-size:8px;line-height:1.9;color:#9ea0b8;max-width:560px}
+  .keys{display:flex;gap:30px;flex-wrap:wrap;justify-content:center}
+  .keys .pl{font-size:9px}
+  .keys .pl b{display:block;margin-bottom:8px}
+  .keys .pl span{display:block;font-size:7px;color:#7a7c98;margin:3px 0}
+  .keys .pl.p1 b{color:#5a7fd6}
+  .keys .pl.p2 b{color:#d65a6a}
+  .btnrow{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+  button{font-family:inherit;font-size:10px;padding:12px 18px;background:#1c1c2a;color:#ffd633;border:2px solid #ffd633;cursor:pointer;letter-spacing:1px}
+  button:hover{background:#ffd633;color:#000}
+  button.sel{background:#ffd633;color:#000}
+  #hud{width:800px;max-width:100%;display:flex;justify-content:space-between;gap:10px;font-size:8px}
+  .hpwrap{flex:1}
+  .hpwrap .name{margin-bottom:6px}
+  .p1n{color:#5a7fd6}.p2n{color:#d65a6a;text-align:right}
+  .bar{height:14px;background:#1a1a26;border:2px solid #000;position:relative;overflow:hidden}
+  .bar>i{display:block;height:100%;width:100%;transition:width .12s linear}
+  .p1bar>i{background:linear-gradient(90deg,#2a4d9c,#5a7fd6)}
+  .p2bar>i{float:right;background:linear-gradient(90deg,#d65a6a,#9c2a3a)}
+  #roundinfo{text-align:center;font-size:8px;color:#9ea0b8;min-width:120px}
+  .hidden{display:none!important}
+  .blink{animation:bl 1s steps(2) infinite}
+  @keyframes bl{50%{opacity:.2}}
+</style>
+</head>
+<body>
+  <h1>MECH BATTLE / 像素机甲对战</h1>
+  <div id="hud">
+    <div class="hpwrap"><div class="name p1n">P1 AZURE</div><div class="bar p1bar"><i id="hp1"></i></div></div>
+    <div id="roundinfo">ROUND <span id="roundNo">1</span><br><span id="wins1">0</span> - <span id="wins2">0</span></div>
+    <div class="hpwrap"><div class="name p2n">P2 CRIMSON</div><div class="bar p2bar"><i id="hp2"></i></div></div>
+  </div>
+  <div id="wrap">
+    <canvas id="cv" width="400" height="180"></canvas>
+
+    <!-- 开始界面 -->
+    <div class="overlay" id="start">
+      <h2>MECH BATTLE</h2>
+      <p>两位机甲驾驶员在废墟城市黄昏中决战。削减对手血量至零即可获胜，三局两胜。</p>
+      <div class="keys">
+        <div class="pl p1"><b>P1 AZURE</b><span>A / D &nbsp;移动</span><span>W &nbsp;跳跃</span><span>S &nbsp;防御</span><span>J &nbsp;近战</span><span>K &nbsp;射击</span></div>
+        <div class="pl p2"><b>P2 CRIMSON</b><span>← / → &nbsp;移动</span><span>↑ &nbsp;跳跃</span><span>↓ &nbsp;防御</span><span>1 &nbsp;近战</span><span>2 &nbsp;射击</span></div>
+      </div>
+      <div class="btnrow" id="modeSel">
+        <button data-mode="pvp" class="sel">双人对战</button>
+        <button data-mode="ai">VS CPU</button>
+      </div>
+      <button id="startBtn">开始战斗</button>
+    </div>
+
+    <!-- 结束界面 -->
+    <div class="overlay hidden" id="end">
+      <h2 id="endTitle">P1 WIN</h2>
+      <p id="endSub">按下方按钮再战一局</p>
+      <div class="btnrow">
+        <button id="rematch">再来一局</button>
+        <button id="toMenu">返回菜单</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ============================================================
+   像素机甲对战 - 单文件 Demo
+   纯原生 HTML+CSS+JS，无任何框架依赖
+   ============================================================ */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+const W = cv.width, H = cv.height;          // 逻辑分辨率 400x180（放大显示）
+const GROUND = H - 34;                       // 地面线
+const GRAV = 0.5;
+
+/* ---------- 调色板（像素风限量配色） ---------- */
+const PAL = {
+  p1:{ main:'#2a4d9c', light:'#6e93e0', dark:'#16264a', metal:'#0d1730', eye:'#8be9fe', en:'#ffd633', shield:'#cfe3ff' },
+  p2:{ main:'#9c2a3a', light:'#e0707f', dark:'#3a1018', metal:'#240a10', eye:'#feaec0', en:'#ff6b33', shield:'#ffd0c0' }
+};
+
+/* ============================================================
+   像素机甲绘制（程序化 fillRect，无外部素材）
+   以机甲脚底中心为原点，scale=2 像素/格
+   ============================================================ */
+function px(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(x|0,y|0,w|0,h|0); }
+
+/* 朝右机甲，以脚底中心 cx,cy 为原点；facing<0 时整体翻转镜像 */
+function drawMech(m, t){
+  const s = 2;                                  // 每格2像素
+  const cx = m.x, cy = m.y;                     // 脚底中心
+  const P = m.pal;
+  const st = m.state;
+  // 动画参数
+  let bob=0, legSwing=0, armOut=0, guard=0, lean=0;
+  if(st==='idle') bob = Math.sin(t*0.004);
+  if(st==='walk') legSwing = Math.sin(t*0.018);
+  if(st==='jump') legSwing = 0.6;
+  if(st==='melee') armOut = Math.min(1,(t-m.stateT)/120);
+  if(st==='shoot') armOut = 0.7;
+  if(st==='block') guard = 1;
+  if(st==='hit'){ lean = 2; bob = Math.sin((t-m.stateT)*0.04)*1.5; }
+
+  ctx.save();
+  ctx.translate(cx, 0);
+  if(m.facing<0) ctx.scale(-1,1);               // 镜像翻转
+  ctx.translate(-cx, 0);
+
+  const Y = dy => cy - dy*s + bob*s;            // dy 向上为正
+  const X = dx => cx + dx*s + lean*s;
+
+  const sw = Math.round(legSwing*2)*s;          // 腿摆动像素位移
+
+  // ---- 腿（总高14：大腿7 + 小腿7）----
+  // 后腿（机甲背后侧）
+  px(X(-4), Y(14), 3*s, 7*s, P.dark);           // 大腿 Y14->Y7
+  px(X(-4)+sw, Y(7), 3*s, 7*s, P.metal);        // 小腿 Y7->Y0脚底
+  px(X(-5)+sw, Y(2), 5*s, 2*s, P.dark);          // 脚
+  // 前腿（朝向侧）
+  px(X(1), Y(14), 3*s, 7*s, P.dark);
+  px(X(1)-sw, Y(7), 3*s, 7*s, P.metal);
+  px(X(0)-sw, Y(2), 5*s, 2*s, P.dark);
+
+  // ---- 腰 dy14-16 ----
+  px(X(-6), Y(16), 12*s, 2*s, P.main);
+  px(X(-6), Y(16), 12*s, 1*s, P.light);
+
+  // ---- 躯干 dy16-25 高9 ----
+  px(X(-6), Y(25), 12*s, 9*s, P.main);
+  px(X(-6), Y(25), 12*s, 1*s, P.light);         // 上沿高光
+  px(X(-6), Y(16), 12*s, 1*s, P.dark);          // 下沿阴影
+  // 胸口核心 dy20-25
+  px(X(-2), Y(25), 4*s, 5*s, P.metal);
+  px(X(-1), Y(24), 2*s, 3*s, P.eye);
+
+  // ---- 肩 dy24-28 ----
+  const shY=28;
+  px(X(-9), Y(shY), 4*s, 4*s, P.main);          // 后肩
+  px(X(-9), Y(shY), 4*s, 1*s, P.light);
+  px(X(5), Y(shY), 4*s, 4*s, P.main);           // 前肩
+  px(X(5), Y(shY), 4*s, 1*s, P.light);
+
+  // ---- 手臂/武器 ----
+  if(guard){
+    // 举盾在前
+    px(X(3), Y(shY-2), 4*s, 8*s, P.shield);
+    px(X(3), Y(shY-2), 4*s, 1*s, '#ffffff');
+    px(X(1), Y(shY-3), 2*s, 6*s, P.main);
+  } else {
+    const ad = 5 + armOut*3;                     // 前臂x偏移，攻击时前伸
+    px(X(ad), Y(shY-1), 3*s, 6*s, P.main);       // 前臂
+    px(X(ad), Y(shY-1), 3*s, 1*s, P.light);
+    px(X(ad+2), Y(shY-5), 3*s, 3*s, P.metal);    // 拳/枪
+    if(st==='melee'){                            // 近战光刃
+      px(X(ad+4), Y(shY-5), 6*s, 2*s, P.en);
+      px(X(ad+4), Y(shY-5), 1*s, 2*s, '#ffffff');
+    }
+    if(st==='shoot'){                            // 枪口能量
+      px(X(ad+5), Y(shY-4), 3*s, 1*s, P.en);
+    }
+  }
+
+  // ---- 头 dy26-32 宽6 ----
+  px(X(-3), Y(32), 6*s, 6*s, P.main);
+  px(X(-3), Y(32), 6*s, 1*s, P.light);
+  // 面罩 dy27-29
+  px(X(-2), Y(29), 3*s, 2*s, P.metal);
+  px(X(0), Y(29), 1*s, 1*s, P.eye);
+  // 天线 dy32-34
+  px(X(0), Y(34), 1*s, 2*s, P.metal);
+
+  // 受击粒子
+  if(st==='hit'){
+    ctx.fillStyle = P.en;
+    for(let i=0;i<5;i++){
+      const a = (t-m.stateT)*0.02 + i*1.2;
+      ctx.fillRect((cx + Math.cos(a)*16)|0, (cy-26*s + Math.sin(a)*8)|0, 2, 2);
+    }
+  }
+  ctx.restore();
+}
+
+/* ============================================================
+   机甲对象
+   ============================================================ */
+function makeMech(opts){
+  return Object.assign({
+    x:0, y:GROUND, vx:0, vy:0, facing:1,
+    hp:100, maxhp:100, pal:PAL.p1,
+    state:'idle', stateT:0,
+    attackCD:0, shootCD:0, hurtCD:0,
+    onGround:true, ai:false, hitstun:0,
+    name:'', proj:[]
+  }, opts);
+}
+
+/* ============================================================
+   子弹（远程射击）
+   ============================================================ */
+function spawnProj(m){
+  m.proj.push({ x:m.x + 10*m.facing, y:m.y-26, vx:3.4*m.facing, life:60, t:0, pal:m.pal });
+}
+
+/* ============================================================
+   场景绘制（像素废墟夕阳）
+   ============================================================ */
+const clouds = Array.from({length:5},()=>({x:Math.random()*W, y:10+Math.random()*30, w:20+Math.random()*40, s:0.1+Math.random()*0.2}));
+const buildings = [];
+(function genCity(){
+  let x=0;
+  while(x<W){
+    const w = 14+Math.random()*22|0;
+    const h = 40+Math.random()*70|0;
+    buildings.push({x, w, h, c:Math.random()<0.5});
+    x += w + 2;
+  }
+})();
+
+function drawScene(t){
+  // 天空渐变（夕阳）
+  const sky = ctx.createLinearGradient(0,0,0,GROUND);
+  sky.addColorStop(0,'#2a1a3a');
+  sky.addColorStop(0.5,'#7a3a4a');
+  sky.addColorStop(1,'#d97a3a');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0,0,W,GROUND);
+  // 太阳
+  ctx.fillStyle='#ffd86b';
+  ctx.beginPath(); ctx.arc(W*0.7, GROUND-30, 14, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle='rgba(255,216,107,.3)';
+  ctx.beginPath(); ctx.arc(W*0.7, GROUND-30, 20, 0, Math.PI*2); ctx.fill();
+  // 云
+  ctx.fillStyle='rgba(255,200,170,.5)';
+  for(const c of clouds){
+    c.x += c.s; if(c.x>W+40) c.x=-40;
+    ctx.fillRect(c.x|0, c.y|0, c.w|0, 3);
+    ctx.fillRect((c.x+4)|0, (c.y-3)|0, (c.w-8)|0, 3);
+  }
+  // 远景建筑剪影
+  for(const b of buildings){
+    ctx.fillStyle = b.c ? '#3a1a2a' : '#241018';
+    ctx.fillRect(b.x, GROUND-b.h, b.w, b.h);
+    // 窗
+    ctx.fillStyle='rgba(255,200,80,.5)';
+    for(let wy=GROUND-b.h+4; wy<GROUND-6; wy+=8)
+      for(let wx=b.x+2; wx<b.x+b.w-3; wx+=6)
+        if(Math.random()<0.4 || ((wx+wy)&7)<3) ctx.fillRect(wx,wy,2,3);
+  }
+  // 地面
+  ctx.fillStyle='#1a1020';
+  ctx.fillRect(0,GROUND,W,H-GROUND);
+  ctx.fillStyle='#2a1a2a';
+  ctx.fillRect(0,GROUND,W,2);
+  // 地砖纹理
+  ctx.fillStyle='#120818';
+  for(let x=0;x<W;x+=16) ctx.fillRect(x,GROUND,1,H-GROUND);
+  ctx.fillStyle='#1f1428';
+  for(let i=0;i<20;i++){ const gx=(i*23)%W; ctx.fillRect(gx,GROUND+6+ (i%3)*6, 4,1); }
+  // 废墟碎片
+  ctx.fillStyle='#241018';
+  for(let i=0;i<8;i++){ const dx=[30,90,160,220,300,360][i%6]; ctx.fillRect(dx,GROUND-3,6,3); }
+}
+
+/* ============================================================
+   输入
+   ============================================================ */
+const keys = {};
+addEventListener('keydown',e=>{
+  keys[e.key.toLowerCase()]=true;
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+});
+addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
+
+function K(name){
+  // 兼容物理键
+  return !!keys[name];
+}
+
+/* ============================================================
+   游戏状态
+   ============================================================ */
+let mode='pvp';            // pvp / ai
+let m1, m2;
+let state='menu';          // menu / play / roundEnd / gameEnd
+let roundNo=1, wins=[0,0];
+let roundTimer=0;
+let shake=0;
+let lastTime=0;
+
+const startUI = document.getElementById('start');
+const endUI = document.getElementById('end');
+const hp1El = document.getElementById('hp1');
+const hp2El = document.getElementById('hp2');
+const wins1El = document.getElementById('wins1');
+const wins2El = document.getElementById('wins2');
+const roundNoEl = document.getElementById('roundNo');
+const roundEl = document.getElementById('roundinfo');
+
+/* ---------- 模式选择 ---------- */
+document.querySelectorAll('#modeSel button').forEach(b=>{
+  b.onclick=()=>{ document.querySelectorAll('#modeSel button').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); mode=b.dataset.mode; };
+});
+document.getElementById('startBtn').onclick=()=>{ startGame(); };
+document.getElementById('rematch').onclick=()=>{ startGame(); };
+document.getElementById('toMenu').onclick=()=>{
+  endUI.classList.add('hidden'); startUI.classList.remove('hidden');
+  wins=[0,0]; roundNo=1; state='menu';
+};
+
+function startGame(){
+  wins=[0,0]; roundNo=1;
+  startUI.classList.add('hidden');
+  endUI.classList.add('hidden');
+  initRound();
+  state='play';
+}
+
+function initRound(){
+  m1 = makeMech({ x:120, facing:1, pal:PAL.p1, name:'AZURE', ai:false });
+  m2 = makeMech({ x:280, facing:-1, pal:PAL.p2, name:'CRIMSON', ai:(mode==='ai') });
+  // AI 初始难度参数
+  m2.aiReact = 220;     // 反应延迟ms（越小越强）
+  m2.aiThink = 0;
+  m2.aiAct = 'idle';
+  roundTimer=0; shake=0;
+  wins1El.textContent=wins[0]; wins2El.textContent=wins[1];
+  roundNoEl.textContent=roundNo;
+}
+
+/* ============================================================
+   机甲逻辑更新
+   ============================================================ */
+function updateMech(m, t, opp, dt){
+  // 冷却递减
+  m.attackCD=Math.max(0,m.attackCD-dt);
+  m.shootCD=Math.max(0,m.shootCD-dt);
+  m.hurtCD=Math.max(0,m.hurtCD-dt);
+  if(m.hitstun>0) m.hitstun-=dt;
+
+  // 输入解析
+  let left=false,right=false,up=false,down=false,atk=false,sh=false;
+  if(m===m1){
+    left=K('a'); right=K('d'); up=K('w'); down=K('s');
+    atk=K('j'); sh=K('k');
+  } else if(!m2.ai){
+    left=K('arrowleft'); right=K('arrowright'); up=K('arrowup'); down=K('arrowdown');
+    atk=K('1')||K('numpad1'); sh=K('2')||K('numpad2');
+  }
+
+  // AI 决策
+  if(m.ai){
+    const d = Math.abs(opp.x - m.x);
+    const facingOpp = Math.sign(opp.x - m.x) || m.facing;
+    m.facing = facingOpp;
+    // 反应：根据距离选行为，带延迟
+    if(t > m.aiThink){
+      if(d>70){ m.aiAct='approach'; }
+      else if(d>40){ m.aiAct = (Math.random()<0.5?'shoot':'approach'); }
+      else { m.aiAct = (Math.random()<0.5?'melee':(Math.random()<0.6?'shoot':'block')); }
+      m.aiThink = t + m.aiReact + Math.random()*120;
+    }
+    switch(m.aiAct){
+      case 'approach': left = (m.x>opp.x); right=!left; break;
+      case 'melee': atk=true; break;
+      case 'shoot': sh=true; break;
+      case 'block': down=true; break;
+    }
+    // 躲避：对方射击且距离适中
+    if(opp.proj.length && Math.random()<0.3 && d<90) up=true;
+  }
+
+  // 状态锁定（攻击/受击中不可移动）
+  const locked = m.state==='melee'||m.state==='shoot'||m.state==='hit';
+
+  // 朝向
+  if(!locked){
+    if(left) m.facing=-1;
+    if(right) m.facing=1;
+  }
+
+  // 移动
+  m.vx=0;
+  if(!locked && !down){
+    if(left) m.vx=-1.6;
+    if(right) m.vx=1.6;
+  }
+
+  // 跳跃
+  if(up && m.onGround && !locked){ m.vy=-7.2; m.onGround=false; }
+
+  // 攻击触发
+  if(!locked && m.hitstun<=0){
+    if(atk && m.attackCD<=0){
+      m.state='melee'; m.stateT=t; m.attackCD=380; m.hitApplied=false;
+    } else if(sh && m.shootCD<=0){
+      m.state='shoot'; m.stateT=t; m.shootCD=600;
+      // 发射点延后：shoot 帧 80ms 时生成
+      setTimeout(()=>{ if(state==='play') spawnProj(m); }, 80);
+    } else if(down){
+      m.state='block'; m.stateT=t;
+    } else {
+      m.state = m.onGround ? (m.vx!==0?'walk':'idle') : 'jump';
+      m.stateT = (m.state!=='walk'&&m.state!=='idle')? m.stateT : t;
+    }
+  }
+
+  // 攻击状态结束判定
+  if(m.state==='melee' && t-m.stateT>240) m.state = m.onGround?'idle':'jump';
+  if(m.state==='shoot' && t-m.stateT>200) m.state = m.onGround?'idle':'jump';
+  if(m.state==='block' && !down && m.hitstun<=0) m.state='idle';
+  if(m.state==='hit' && t-m.stateT>300) m.state='idle';
+
+  // 物理
+  m.vy += GRAV;
+  m.x += m.vx;
+  m.y += m.vy;
+  if(m.y >= GROUND){ m.y=GROUND; m.vy=0; m.onGround=true; }
+  // 边界
+  m.x = Math.max(20, Math.min(W-20, m.x));
+
+  // 近战命中判定（在 melee 中段）
+  if(m.state==='melee' && !m.hitApplied && t-m.stateT>90 && t-m.stateT<200){
+    m.hitApplied=true;
+    const reach = 26;
+    const dx = opp.x - m.x;
+    if(Math.abs(dx) < reach && Math.sign(dx)===m.facing && Math.abs(opp.y-m.y)<30){
+      applyHit(opp, m, 9, false);
+    }
+  }
+
+  // 子弹更新与命中
+  for(let i=m.proj.length-1;i>=0;i--){
+    const p=m.proj[i];
+    p.x+=p.vx; p.t++; p.life--;
+    if(p.life<=0 || p.x<0 || p.x>W){ m.proj.splice(i,1); continue; }
+    // 命中对手
+    if(Math.abs(p.x-opp.x)<10 && Math.abs(p.y-(opp.y-24))<22){
+      m.proj.splice(i,1);
+      applyHit(opp, m, 6, true);
+    }
+  }
+}
+
+function applyHit(target, attacker, dmg, isProj){
+  if(target.hurtCD>0) return;
+  // 防御减伤（防御方向需朝攻击者）
+  const guarding = target.state==='block' && Math.sign(attacker.x-target.x)===target.facing;
+  const real = guarding ? Math.round(dmg*0.2) : dmg;
+  target.hp = Math.max(0, target.hp - real);
+  target.hurtCD = isProj?120:200;
+  target.hitstun = 200;
+  target.state='hit'; target.stateT=performance.now();
+  // 击退：朝攻击反方向
+  target.vx = 0;
+  const dir = Math.sign(target.x - attacker.x) || 1;
+  target.x += dir * (guarding?2:5);
+  shake = guarding?3:7;
+  // 胜负
+  if(target.hp<=0){
+    if(state==='play'){
+      state='roundEnd'; roundTimer=performance.now();
+      const winner = target===m1?2:1;
+      wins[winner-1]++;
+    }
+  }
+}
+
+/* ============================================================
+   主循环
+   ============================================================ */
+function loop(now){
+  const dt = Math.min(40, now-lastTime||16);
+  lastTime=now;
+
+  // 渲染
+  ctx.save();
+  if(shake>0){ ctx.translate((Math.random()-0.5)*shake, (Math.random()-0.5)*shake); shake*=0.85; if(shake<0.5)shake=0; }
+  drawScene(now);
+
+  if(state==='play' || state==='roundEnd'){
+    updateMech(m1, now, m2, dt);
+    updateMech(m2, now, m1, dt);
+
+    // 子弹绘制
+    const drawProj=(m)=>{ for(const p of m.proj){ ctx.fillStyle=p.pal.en; ctx.fillRect(p.x-2,p.y-1,4,3); ctx.fillStyle='#fff'; ctx.fillRect(p.x-1,p.y,2,1); } };
+    drawProj(m1); drawProj(m2);
+
+    // 绘制机甲（远的先画）
+    if(m1.x<m2.x){ drawMech(m1,now); drawMech(m2,now); }
+    else { drawMech(m2,now); drawMech(m1,now); }
+
+    // HUD
+    hp1El.style.width = (m1.hp/m1.maxhp*100)+'%';
+    hp2El.style.width = (m2.hp/m2.maxhp*100)+'%';
+  }
+  ctx.restore();
+
+  // 回合结束处理
+  if(state==='roundEnd'){
+    const elapsed = now - roundTimer;
+    if(elapsed>1200){
+      if(wins[0]>=2 || wins[1]>=2){
+        // 比赛结束
+        state='gameEnd';
+        const win = wins[0]>wins[1]?1:2;
+        document.getElementById('endTitle').textContent = `P${win} ${win===1?'AZURE':'CRIMSON'} 胜利`;
+        document.getElementById('endTitle').style.color = win===1?'#5a7fd6':'#d65a6a';
+        document.getElementById('endSub').textContent = `最终比分 ${wins[0]} - ${wins[1]}`;
+        endUI.classList.remove('hidden');
+      } else {
+        roundNo++;
+        initRound();
+        state='play';
+      }
+    }
+  }
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
