@@ -1,113 +1,123 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  MessageSquareText,
+  PenLine,
+  WandSparkles,
+  FileSearch,
+  ArrowRight,
+} from "lucide-react";
+import { WelcomeHero } from "@/components/WelcomeHero";
+import { FeatureCard } from "@/components/FeatureCard";
+import { setPendingPrompt } from "@/lib/intake";
+
+const QUICK_PROMPTS = [
+  "帮我写一份新产品的发布文案",
+  "用通俗的语言解释什么是向量数据库",
+  "优化我简历里的项目经历描述",
+  "帮我制定一份为期一周的健身计划",
+];
+
+const FEATURES = [
+  {
+    href: "/chat",
+    title: "AI 对话",
+    desc: "多轮上下文对话，支持 Markdown 与代码高亮，回答可复制、可重新生成。",
+    icon: MessageSquareText,
+    tone: "cyan" as const,
+  },
+  {
+    href: "/create?type=copy",
+    title: "文案创作",
+    desc: "覆盖营销、社媒、产品介绍等场景的创作模板，从草稿到成稿一步到位。",
+    icon: PenLine,
+    tone: "violet" as const,
+  },
+  {
+    href: "/create?type=prompt",
+    title: "提示词优化",
+    desc: "把模糊想法改写为结构清晰、目标明确的高质量提示词，提升模型输出质量。",
+    icon: WandSparkles,
+    tone: "cyan" as const,
+  },
+  {
+    href: "/files",
+    title: "文件分析",
+    desc: "文档解读与要点提炼能力规划中，将在模型接口就绪后开放。",
+    icon: FileSearch,
+    tone: "violet" as const,
+    badge: "扩展中",
+  },
+];
+
+export default function HomePage() {
+  const router = useRouter();
+
+  const goWithPrompt = (text: string) => {
+    setPendingPrompt(text);
+    router.push("/chat");
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+        {/* 欢迎区域 */}
+        <section className="flex flex-col items-center text-center">
+          <WelcomeHero />
+          <h2 className="mt-6 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+            欢迎使用 <span className="text-gradient">AI Space</span>
+          </h2>
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-slate-400 sm:text-[15px]">
+            一个集成对话、创作与分析的智能工作空间。所有请求经服务端安全转发，
+            对话记录仅保存在你的浏览器中。
+          </p>
+
+          <Link href="/chat" className="btn-primary mt-7 h-10 px-5">
+            开始对话
+            <ArrowRight size={16} />
+          </Link>
+        </section>
+
+        {/* 常用任务快捷入口 */}
+        <section className="mt-12 sm:mt-16">
+          <h3 className="text-xs font-medium uppercase tracking-widest text-slate-500">
+            常用任务
+          </h3>
+          <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {QUICK_PROMPTS.map((p) => (
+              <button
+                key={p}
+                onClick={() => goWithPrompt(p)}
+                className="glass-soft flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-left text-[13px] text-slate-300 transition hover:bg-white/[0.06] hover:text-white"
+              >
+                <span className="truncate">{p}</span>
+                <ArrowRight
+                  size={14}
+                  className="shrink-0 text-slate-600 transition hover:text-cyan-300"
+                />
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* 核心功能卡片 */}
+        <section className="mt-12 sm:mt-16">
+          <h3 className="text-xs font-medium uppercase tracking-widest text-slate-500">
+            核心功能
+          </h3>
+          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {FEATURES.map((f) => (
+              <FeatureCard key={f.title} {...f} />
+            ))}
+          </div>
+        </section>
+
+        <p className="mt-14 text-center text-[11px] text-slate-600">
+          AI Space · 本地运行版本 · 模型输出由第三方服务商提供
         </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
       </div>
-
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+    </div>
   );
 }
