@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>对齐之路 · Anthropic 2021—2026</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="stage">
+
+  <!-- ===================== S1 序 ===================== -->
+  <section class="scene" id="s1">
+    <canvas id="cv-lattice-bg"></canvas>
+    <div class="topbar">
+      <span class="mono-label">MOTION ESSAY · No.01</span>
+      <span class="mono-label">ANTHROPIC · 2021 — 2026</span>
+    </div>
+    <div class="s1-center">
+      <h1 class="serif-xl" id="s1-l1">如果 AI 终将改变一切，</h1>
+      <h1 class="serif-xl" id="s1-l2">我们该以怎样的姿态，与它同行？</h1>
+    </div>
+    <p class="mono-sub" id="s1-sub">一个关于安全、宪法与信任的故事</p>
+    <div class="botbar"><span class="mono-label dim">01 / 06 · 序</span></div>
+  </section>
+
+  <!-- ===================== S2 出走 ===================== -->
+  <section class="scene dark" id="s2">
+    <div class="topbar">
+      <span class="mono-label coral">2021 · SAN FRANCISCO</span>
+      <span class="mono-label dim">A COMPANY BORN FROM A CONCERN</span>
+    </div>
+    <div class="s2-block">
+      <h2 class="serif-l" id="s2-h">一群 OpenAI 的核心研究者，选择了离开。</h2>
+      <p class="mono-names" id="s2-names">DARIO AMODEI · DANIELA AMODEI · TOM BROWN · JARED KAPLAN · CHRIS OLAH · …</p>
+      <p class="serif-m" id="s2-p1">他们带走的不是技术，</p>
+      <p class="serif-m" id="s2-p2">而是一个更古老的优先级——</p>
+      <h2 class="serif-xxl coral" id="s2-big">安全，先于规模。</h2>
+    </div>
+    <svg id="s2-fork" viewBox="0 0 900 120" aria-hidden="true">
+      <path id="fork-main" d="M0,60 L360,60"/>
+      <path id="fork-up"   d="M360,60 C 480,60 520,18 900,18"/>
+      <path id="fork-flat" d="M360,60 C 520,60 640,66 900,66"/>
+      <text id="fork-t-up" x="742" y="10">SAFETY FIRST</text>
+      <text id="fork-t-flat" x="762" y="84">SCALE FIRST</text>
+    </svg>
+    <div class="botbar"><span class="mono-label dim">02 / 06 · 出走</span></div>
+  </section>
+
+  <!-- ===================== S3 宪法式 AI ===================== -->
+  <section class="scene" id="s3">
+    <canvas id="cv-chaos"></canvas>
+    <div class="topbar">
+      <span class="mono-label coral">CONSTITUTIONAL AI · 2022</span>
+      <span class="mono-label dim">RLAIF · SELF-CRITIQUE</span>
+    </div>
+    <div class="s3-left">
+      <h2 class="serif-l" id="s3-h">给 AI 一部「宪法」</h2>
+      <p class="sans-body" id="s3-body">与其让人类逐条评判，<br>不如让 AI 遵循一部成文的价值宪章，<br>在每一次回答前，自我修正。</p>
+      <p class="mono-sub" id="s3-src">参照《世界人权宣言》等人类共同价值写成</p>
+    </div>
+    <div class="s3-doc" id="s3-doc">
+      <div class="doc-head mono-label">THE CONSTITUTION</div>
+      <div class="doc-rule"></div>
+      <div class="doc-row" id="doc-r1"><span class="doc-no">01</span><span class="doc-cn serif-m">有帮助</span><span class="doc-en mono-label">HELPFUL</span></div>
+      <div class="doc-row" id="doc-r2"><span class="doc-no">02</span><span class="doc-cn serif-m">无害</span><span class="doc-en mono-label">HARMLESS</span></div>
+      <div class="doc-row" id="doc-r3"><span class="doc-no">03</span><span class="doc-cn serif-m">诚实</span><span class="doc-en mono-label">HONEST</span></div>
+      <div class="doc-rule"></div>
+      <div class="doc-foot mono-label">WRITTEN · REVISED · OBEYED</div>
+    </div>
+    <p class="mono-sub s3-cap" id="s3-cap">从噪声，到秩序 —— FROM NOISE TO ORDER</p>
+    <div class="botbar"><span class="mono-label dim">03 / 06 · 方法</span></div>
+  </section>
+
+  <!-- ===================== S4 Claude 纪元 ===================== -->
+  <section class="scene" id="s4">
+    <div class="topbar">
+      <span class="mono-label coral">THE CLAUDE ERA · 2023 → 2026</span>
+      <span class="mono-label dim">EVERY RELEASE SHIPS WITH A SYSTEM CARD</span>
+    </div>
+    <h2 class="serif-l s4-h" id="s4-h">Claude 纪元</h2>
+    <svg id="s4-timeline" viewBox="0 0 1440 340" aria-hidden="true">
+      <line id="tl-axis" x1="0" y1="170" x2="1440" y2="170"/>
+    </svg>
+    <p class="mono-sub s4-cap" id="s4-cap">每一次发布，都附带系统卡（System Card）与安全评估</p>
+    <div class="botbar"><span class="mono-label dim">04 / 06 · 模型</span></div>
+  </section>
+
+  <!-- ===================== S5 信任曲线 ===================== -->
+  <section class="scene" id="s5">
+    <div class="topbar">
+      <span class="mono-label coral">RUN-RATE REVENUE & VALUATION</span>
+      <span class="mono-label dim">SOURCE · ANTHROPIC OFFICIAL ANNOUNCEMENTS</span>
+    </div>
+    <h2 class="serif-l s5-h" id="s5-h">信任，被兑现为数字</h2>
+    <svg id="s5-chart" viewBox="0 0 1020 460" aria-hidden="true">
+      <g id="chart-grid"></g>
+      <path id="chart-area"/>
+      <path id="chart-line"/>
+      <g id="chart-points"></g>
+      <g id="chart-labels"></g>
+    </svg>
+    <div class="s5-big">
+      <div class="bignum serif-xxl" id="s5-num">$0</div>
+      <div class="mono-label coral">年化 RUN-RATE · 2026.07</div>
+      <div class="mono-label dim">连续三年，年增速超过 10 倍</div>
+    </div>
+    <div class="s5-funding" id="s5-funding"></div>
+    <div class="botbar"><span class="mono-label dim">05 / 06 · 增长</span></div>
+  </section>
+
+  <!-- ===================== S6 尾声 ===================== -->
+  <section class="scene" id="s6">
+    <div class="topbar">
+      <span class="mono-label">MISSION</span>
+      <span class="mono-label dim">EPILOGUE</span>
+    </div>
+    <div class="s6-block">
+      <p class="serif-l" id="s6-l1">我们不问 AI 能走多快，</p>
+      <p class="serif-l" id="s6-l2">我们问——怎样与它同行。</p>
+      <p class="serif-m s6-mission" id="s6-mission">确保人类安全跨越变革性 AI 的时代。</p>
+    </div>
+    <div class="s6-endcard" id="s6-endcard">
+      <svg id="s6-mark" viewBox="0 0 120 120" aria-hidden="true">
+        <g id="mark-strokes" stroke="#D97757" stroke-width="9" stroke-linecap="round">
+          <line x1="60" y1="14" x2="60" y2="106"/>
+          <line x1="20.2" y1="37" x2="99.8" y2="83"/>
+          <line x1="20.2" y1="83" x2="99.8" y2="37"/>
+        </g>
+      </svg>
+      <h2 class="serif-l" id="s6-name">Anthropic</h2>
+      <p class="mono-label" id="s6-tag">CLAUDE · 与人类对齐的智能</p>
+    </div>
+    <p class="mono-label dim s6-credits" id="s6-credits">MOTION ESSAY · 原生 HTML + CSS + JS · WEB AUDIO 实时合成 · 2026.11</p>
+  </section>
+
+  <!-- ===================== 覆盖层 ===================== -->
+  <div id="grain"></div>
+  <div id="vignette"></div>
+  <div id="poster">
+    <div class="poster-inner">
+      <svg id="poster-mark" viewBox="0 0 120 120" aria-hidden="true">
+        <g stroke="#D97757" stroke-width="9" stroke-linecap="round">
+          <line x1="60" y1="14" x2="60" y2="106"/>
+          <line x1="20.2" y1="37" x2="99.8" y2="83"/>
+          <line x1="20.2" y1="83" x2="99.8" y2="37"/>
+        </g>
+      </svg>
+      <h1 class="serif-l">对齐之路</h1>
+      <p class="mono-label">ANTHROPIC · 2021 — 2026 · A MOTION ESSAY</p>
+      <button id="play-btn">播 放</button>
+      <p class="mono-label dim poster-note">建议佩戴耳机 · 含 Web Audio 实时合成配乐</p>
+    </div>
+  </div>
+</div>
+
+<script src="js/util.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/scenes.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
